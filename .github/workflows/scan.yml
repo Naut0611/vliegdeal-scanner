@@ -1,0 +1,50 @@
+name: Nachtelijke scan
+
+on:
+  schedule:
+    # 01:00 UTC; bij SCANS_PER_RUN=1000 duurt een run tot ~5 uur, dus ruim vóór
+    # de gebruikelijke ochtend klaar. timeout-minutes hieronder stopt 'm netjes
+    # vóór GitHub's harde limiet van 6 uur per job.
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Scan
+        run: python scanner.py
+
+      # Draait ook als de scan hierboven faalt/afbreekt (if: always()), zodat de
+      # private repo's pipeline (livecheck/curate/recheck/review/kalender) net als
+      # bij een lokale run gewoon doorgaat op wat er al ligt.
+      - name: Meld de private repo dat de scan klaar is
+        if: always()
+        env:
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+          SCAN_OUTCOME: ${{ job.status }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: token ${DISPATCH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Naut0611/vliegdealtjes/dispatches" \
+            -d "{\"event_type\":\"scan-klaar\",\"client_payload\":{\"status\":\"${SCAN_OUTCOME}\"}}"

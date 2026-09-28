@@ -1,0 +1,9 @@
+# Python-dependencies voor analytics/
+# (cryptography via supabase: op oudere macOS bestaat niet altijd een wheel voor
+# de nieuwste versie; deze regel voorkomt dat pip 'm probeert te compileren.)
+--only-binary=cryptography
+
+playwright>=1.40
+fast-flights>=3.1
+supabase>=2.10
+python-dotenv>=1.0
