@@ -80,7 +80,7 @@ ORIGIN_AIRPORTS = [
 
 # Maximaal aantal scans per run. ~15-17 s per scan, dus 500 scans ≈ 2,5 uur.
 # Hoger = snellere dekking, maar meer verkeer richting Google (blokkaderisico).
-SCANS_PER_RUN = 10
+SCANS_PER_RUN = 1000
 
 # Hoeveel maanden vooruit, en hoeveel steekproefdata per maand.
 MONTHS_AHEAD = 6
