@@ -2,15 +2,11 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # 5:38 UTC = 7:38 lokale tijd nu (zomertijd/CEST); in wintertijd (CET) wordt dit
-    # lokaal 6:38. LET OP: deze schedule-trigger is bij herhaling niet blijken af te
-    # gaan (3 losse pogingen, op 3 verschillende tijden, ook na een handmatige
-    # uit/aanzet-cyclus van de workflow -- zie CLAUDE.md/gesprekshistorie). De
-    # daadwerkelijke, betrouwbare nachtelijke run blijft dus vooralsnog lokale
-    # launchd (scripts/run_daily.sh); deze GitHub-schedule is een bonus die het tot
-    # nu toe niet doet, geen vervanging. `workflow_dispatch` (handmatig of via een
-    # externe cron-aanroep op de GitHub API) werkt wel betrouwbaar.
-    - cron: "38 5 * * *"
+    # TIJDELIJK 10:00 UTC (12:00 CEST): test met een veel ruimere marge (~1,5 uur na
+    # het pushen) dan de eerdere 3 mislukte pogingen (~2-20 min marge) -- als dit ook
+    # niet afgaat, ligt het zeker niet aan te-laat-pushen maar aan iets structureels
+    # bij GitHub voor deze repo. Terugzetten naar 5:38 UTC na deze test.
+    - cron: "0 10 * * *"
   workflow_dispatch: {}
 
 concurrency:
