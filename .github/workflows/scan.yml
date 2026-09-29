@@ -2,11 +2,15 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # TIJDELIJK 06:48 UTC: test na het handmatig uit/aanzetten van de workflow
-    # (dat ververste eindelijk GitHub's eigen 'updated_at' op de workflow, dus dat
-    # leek de vastgelopen schedule-registratie te herstellen). Terugzetten naar
-    # 5:38 UTC (07:38 CEST / 06:38 CET) zodra bevestigd is dat dit afvuurt.
-    - cron: "48 6 * * *"
+    # 5:38 UTC = 7:38 lokale tijd nu (zomertijd/CEST); in wintertijd (CET) wordt dit
+    # lokaal 6:38. LET OP: deze schedule-trigger is bij herhaling niet blijken af te
+    # gaan (3 losse pogingen, op 3 verschillende tijden, ook na een handmatige
+    # uit/aanzet-cyclus van de workflow -- zie CLAUDE.md/gesprekshistorie). De
+    # daadwerkelijke, betrouwbare nachtelijke run blijft dus vooralsnog lokale
+    # launchd (scripts/run_daily.sh); deze GitHub-schedule is een bonus die het tot
+    # nu toe niet doet, geen vervanging. `workflow_dispatch` (handmatig of via een
+    # externe cron-aanroep op de GitHub API) werkt wel betrouwbaar.
+    - cron: "38 5 * * *"
   workflow_dispatch: {}
 
 concurrency:
