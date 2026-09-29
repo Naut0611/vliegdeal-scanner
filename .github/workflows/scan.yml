@@ -2,15 +2,11 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # 5:38 UTC = 7:38 lokale tijd nu (zomertijd/CEST); eind oktober-eind maart
-    # (wintertijd/CET) wordt dit lokaal 6:38 -- cron kent geen tijdzones/DST, dus
-    # bewust op de zomertijd-stand gezet. Bewust niet op een rond heel uur (bv.
-    # 6:00): GitHub's schedule-runs zijn dan het vaakst vertraagd/overgeslagen bij
-    # drukte -- precies wat er met de eerdere 1:00 UTC-tijd gebeurde (geconstateerd
-    # via de Actions-API: geen enkele schedule-run in de eerste nacht).
-    # timeout-minutes hieronder stopt 'm netjes vóór GitHub's harde limiet van 6 uur
-    # per job.
-    - cron: "38 5 * * *"
+    # TIJDELIJK 06:05 UTC, alleen om de schedule-trigger zelf te testen (zie
+    # CLAUDE.md/gesprekshistorie: een schema-wijziging vlak vóór het geplande moment
+    # gepusht wordt door GitHub gemist -- dit keer met ruim ~20 min marge gezet).
+    # Terugzetten naar 5:38 UTC (07:38 CEST / 06:38 CET) zodra de test geslaagd is.
+    - cron: "5 6 * * *"
   workflow_dispatch: {}
 
 concurrency:
