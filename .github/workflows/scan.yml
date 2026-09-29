@@ -1,17 +1,13 @@
 name: Nachtelijke scan
 
+# GEEN schedule: hier -- uitgebreid getest (ruime marge, krappe marge, een elke-minuut-cron: 9+
+# kansen) en `event=schedule` gaf keer op keer `total_count: 0`. GitHub's scheduler heeft deze
+# workflow nooit ook maar geprobeerd te starten, terwijl workflow_dispatch hieronder wel 100%
+# betrouwbaar werkt. Root cause onbekend/aan GitHub's kant, niet verder onderzocht na dit bewijs.
+# Wordt daarom dagelijks aangeroepen door een externe cron-dienst (buiten GitHub) die op tijd een
+# POST doet naar deze workflow's /dispatches-endpoint met een GitHub Personal Access Token -- zie
+# CLAUDE.md in de private repo voor de volledige toelichting/opzet.
 on:
-  schedule:
-    # Terug naar 5:38 UTC (07:38 CEST) na uitgebreid troubleshooten van GitHub's
-    # schedule-trigger op deze workflow: geteste tijden met ruime marge (~1,5u),
-    # krappe marge (~3 min) en een elke-minuut-cron (9+ kansen) leverden allemaal
-    # `event=schedule` total_count: 0 op -- geen enkele scheduled run, ooit. Repo-
-    # permissies zijn bevestigd correct (Settings > Actions, en via GitHub Copilot).
-    # workflow_dispatch werkt intussen wel 100% betrouwbaar. Conclusie: dit is geen
-    # config-/timingprobleem aan onze kant maar iets structureels bij GitHub voor
-    # deze repo/workflow -- vervolgstap is GitHub Support of een externe cron-dienst
-    # die workflow_dispatch aanroept, niet verder testen met crontijden.
-    - cron: "38 5 * * *"
   workflow_dispatch: {}
 
 concurrency:
