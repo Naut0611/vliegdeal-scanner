@@ -2,10 +2,14 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # 01:00 UTC; bij SCANS_PER_RUN=1000 duurt een run tot ~5 uur, dus ruim vóór
-    # de gebruikelijke ochtend klaar. timeout-minutes hieronder stopt 'm netjes
-    # vóór GitHub's harde limiet van 6 uur per job.
-    - cron: "0 1 * * *"
+    # 6:36 UTC = 7:36 lokale tijd (wintertijd/CET; door zomertijd/CEST eind maart-eind
+    # oktober wordt dit lokaal 8:36 -- cron kent geen tijdzones/DST). Bewust niet op
+    # een rond heel uur (bv. 6:00): GitHub's schedule-runs zijn dan het vaakst
+    # vertraagd/overgeslagen bij drukte -- precies wat er met de vorige 1:00 UTC-tijd
+    # gebeurde (geconstateerd via de Actions-API: geen enkele schedule-run in de
+    # eerste nacht). timeout-minutes hieronder stopt 'm netjes vóór GitHub's harde
+    # limiet van 6 uur per job.
+    - cron: "36 6 * * *"
   workflow_dispatch: {}
 
 concurrency:
