@@ -6,7 +6,7 @@ on:
     # total_count: 0 op (geen enkele schedule-triggered run) -- dus geen marge- of
     # timingprobleem. Dit is een korte-marge-test (~3 min na pushen). Terugzetten
     # naar 5:38 UTC na deze test.
-    - cron: "18 10 * * *"
+    - cron: "* * * * *"  # Runs every minute
   workflow_dispatch: {}
 
 concurrency:
