@@ -2,11 +2,11 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # TIJDELIJK 10:00 UTC (12:00 CEST): test met een veel ruimere marge (~1,5 uur na
-    # het pushen) dan de eerdere 3 mislukte pogingen (~2-20 min marge) -- als dit ook
-    # niet afgaat, ligt het zeker niet aan te-laat-pushen maar aan iets structureels
-    # bij GitHub voor deze repo. Terugzetten naar 5:38 UTC na deze test.
-    - cron: "0 10 * * *"
+    # TIJDELIJK 10:18 UTC: ook de 10:00 UTC-test met ruime marge (~1,5 uur) leverde
+    # total_count: 0 op (geen enkele schedule-triggered run) -- dus geen marge- of
+    # timingprobleem. Dit is een korte-marge-test (~3 min na pushen). Terugzetten
+    # naar 5:38 UTC na deze test.
+    - cron: "18 10 * * *"
   workflow_dispatch: {}
 
 concurrency:
