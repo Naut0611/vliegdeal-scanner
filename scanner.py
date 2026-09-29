@@ -287,9 +287,10 @@ def main():
                 else:
                     heen = ""
                     if row["outbound_stops"] is not None:
+                        maatschappij = ", ".join(row["outbound_airlines"]) if row["outbound_airlines"] else "onbekend"
                         heen = (f", heenreis: {row['outbound_stops']}x overstappen"
                                 f"{' via ' + ', '.join(row['outbound_stopover_airports']) if row['outbound_stops'] else ''}"
-                                f", {row['outbound_duration_minutes']} min")
+                                f", {row['outbound_duration_minutes']} min, {maatschappij}")
                     print(f"  Prijs: €{row['lowest_price']:.0f}, label: {row['insight_label']}{heen}"
                           f"{' <<< DEAL' if row['is_deal'] else ''}\n")
                 if row["is_deal"]:

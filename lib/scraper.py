@@ -140,11 +140,16 @@ def _naar_datetime(simple_datetime):
 def extract_outbound_itinerary(html):
     """
     Haalt via fast_flights' EIGEN parser (dezelfde paginalading, geen extra request)
-    het aantal tussenstops, de tussenstop-luchthavens en de reisduur van de
-    HEENreis. Alleen de heenreis: Google toont een retour in twee stappen (heen
+    het aantal tussenstops, de tussenstop-luchthavens, de reisduur en de maatschappij(en)
+    van de HEENreis. Alleen de heenreis: Google toont een retour in twee stappen (heen
     kiezen, dan pas terug) en we klikken niet door (zou een 2e paginalading per
     combinatie betekenen). fast_flights sorteert de itineraries op prijs, dus
     entry 0 hoort bij dezelfde laagste prijs als extract_price_insights vindt.
+
+    Maatschappij: fast_flights' parser geeft dit al mee (Flights.airlines) uit dezelfde
+    paginalading -- geen aparte request. De waarden zijn soms al namen ('Vueling'), soms
+    IATA-codes ('VY'); resultaten.metadata.airlines (code -> naam, uit dezelfde pagina)
+    lost dat laatste op. Onbekende/al-herkenbare waarden vallen terug op zichzelf.
 
     Best-effort: geeft None bij een lege/onverwachte pagina (bijv. geen resultaten,
     of een paginastructuur die de parser niet herkent) -- dat laat de rest van de
@@ -157,17 +162,27 @@ def extract_outbound_itinerary(html):
     if not resultaten:
         return None
 
-    legs = resultaten[0].flights
+    beste = resultaten[0]
+    legs = beste.flights
     if not legs:
         return None
 
     vertrek = _naar_datetime(legs[0].departure)
     aankomst = _naar_datetime(legs[-1].arrival)
 
+    metadata = getattr(resultaten, "metadata", None)
+    naam_per_code = {a.code: a.name for a in metadata.airlines} if metadata else {}
+    airlines = []
+    for waarde in beste.airlines or []:
+        naam = naam_per_code.get(waarde, waarde)
+        if naam not in airlines:
+            airlines.append(naam)
+
     return {
         "stops": len(legs) - 1,
         "stopover_airports": [leg.to_airport.code for leg in legs[:-1]],
         "duration_minutes": round((aankomst - vertrek).total_seconds() / 60),
+        "airlines": airlines,
     }
 
 
@@ -213,6 +228,7 @@ def search_route_insights(page, origin, destination, depart_date, return_date, s
             resultaat["outbound_stops"] = itinerary["stops"] if itinerary else None
             resultaat["outbound_stopover_airports"] = itinerary["stopover_airports"] if itinerary else None
             resultaat["outbound_duration_minutes"] = itinerary["duration_minutes"] if itinerary else None
+            resultaat["outbound_airlines"] = itinerary["airlines"] if itinerary else None
 
             return resultaat
 
@@ -245,7 +261,7 @@ def build_scan_row(route_id, depart_date, return_date, insights, cabin_class="ec
             "stay_days": STAY_DAYS, "lowest_price": None, "insight_label": "fout",
             "price_floor": None, "is_deal": False, "cabin_class": cabin_class,
             "outbound_stops": None, "outbound_stopover_airports": None,
-            "outbound_duration_minutes": None,
+            "outbound_duration_minutes": None, "outbound_airlines": None,
         }
 
     heeft_prijs = insights["laagste_prijs"] is not None
@@ -265,5 +281,6 @@ def build_scan_row(route_id, depart_date, return_date, insights, cabin_class="ec
         "outbound_stops": insights.get("outbound_stops"),
         "outbound_stopover_airports": insights.get("outbound_stopover_airports"),
         "outbound_duration_minutes": insights.get("outbound_duration_minutes"),
+        "outbound_airlines": insights.get("outbound_airlines"),
     }
 
