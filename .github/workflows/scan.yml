@@ -2,15 +2,11 @@ name: Nachtelijke scan
 
 on:
   schedule:
-    # 5:38 UTC = 7:38 lokale tijd nu (zomertijd/CEST); in wintertijd (CET) wordt dit
-    # lokaal 6:38 -- cron kent geen tijdzones/DST. Bewust niet op een rond heel uur:
-    # GitHub's schedule-runs zijn dan het vaakst vertraagd/overgeslagen bij drukte.
-    # Twee losse testpogingen (met resp. ~2 min en ~20 min marge na het pushen van
-    # een schema-wijziging) vuurden geen van beide af -- opgelost door de workflow
-    # eenmalig handmatig uit/aan te zetten in de GitHub-UI, waarna GitHub de
-    # schedule opnieuw registreert. Niet meer snel achter elkaar wijzigen: laat 'm
-    # met rust zodat hij kan settelen.
-    - cron: "38 5 * * *"
+    # TIJDELIJK 06:48 UTC: test na het handmatig uit/aanzetten van de workflow
+    # (dat ververste eindelijk GitHub's eigen 'updated_at' op de workflow, dus dat
+    # leek de vastgelopen schedule-registratie te herstellen). Terugzetten naar
+    # 5:38 UTC (07:38 CEST / 06:38 CET) zodra bevestigd is dat dit afvuurt.
+    - cron: "48 6 * * *"
   workflow_dispatch: {}
 
 concurrency:
