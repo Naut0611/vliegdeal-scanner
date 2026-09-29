@@ -1,422 +1,422 @@
-iata,naam,land,deals_per_jaar
-BKK,Bangkok,TH,36
-DPS,Bali,ID,22
-CPT,Kaapstad,ZA,21
-JNB,Johannesburg,ZA,18
-NYC,New York,US,18
-PVG,Shanghai,CN,14
-LAX,Los Angeles,US,13
-DXB,Dubai,AE,12
-KUL,Kuala Lumpur,MY,12
-PTY,Panama City,PA,11
-HKT,Phuket,TH,11
-BOM,Mumbai,IN,9
-GRU,Sao Paulo,BR,9
-SIN,Singapore,SG,9
-SGN,Ho Chi Minh City,VN,8
-HAN,Hanoi,VN,7
-HKG,Hong Kong,HK,7
-NBO,Nairobi,KE,7
-MLA,Malta,MT,6
-SID,Sal,CV,6
-FNC,Funchal,PT,5
-LIS,Lissabon,PT,5
-RAK,Marrakech,MA,5
-BGW,Baghdad,IQ,3
-OPO,Porto,PT,3
-XIY,Xi An,CN,3
-MAA,Chennai,IN,2
-MCO,Orlando,US,2
-WUH,Wuhan,CN,2
-BNE,Brisbane,AU,1
-PNH,Phnom Penh,KH,1
-VCE,Venetië,IT,1
-CAN,Guangzhou,CN,
-PMO,Palermo,IT,
-ICN,Seoul,KR,18
-CUN,Cancun,MX,17
-CGK,Jakarta,ID,16
-MNL,Manila,PH,14
-CUR,Curacao,CW,13
-PEK,Beijing,CN,11
-SFO,San Francisco,US,11
-HND,Tokio,JP,11
-AKL,Auckland,NZ,10
-BOS,Boston,US,10
-SYD,Sydney,AU,10
-YHZ,Halifax,CA,9
-GIG,Rio de Janeiro,BR,9
-YYZ,Toronto,CA,9
-ZNZ,Zanzibar,TZ,9
-HAV,Havana,CU,8
-IST,Istanbul,TR,8
-MIA,Miami,US,8
-MCT,Muscat,OM,8
-SEZ,Seychellen,SC,8
-BON,Bonaire,BQ,7
-CMB,Colombo,LK,7
-MEL,Melbourne,AU,7
-PUJ,Punta Cana,DO,7
-ADD,Addis Ababa,ET,6
-ORD,Chicago,US,6
-IBZ,Ibiza,ES,6
-KWI,Koeweit,KW,6
-LAS,Las Vegas,US,6
-AGP,Malaga,ES,6
-MLE,Malediven,MV,6
-MEX,Mexico City,MX,6
-DEL,New Delhi,IN,6
-SJO,San Jose,CR,6
-TPE,Taipei,TW,6
-VLC,Valencia,ES,6
-AUH,Abu Dhabi,AE,5
-AUA,Aruba,AW,5
-FRU,Bishkek,KG,5
-EDI,Edinburgh,GB,5
-HNL,Honolulu,US,5
-HRG,Hurghada,EG,5
-PMI,Mallorca,ES,5
-MRU,Mauritius,MU,5
-YUL,Montreal,CA,5
-KIX,Osaka,JP,5
-PDL,Ponta Delgada,PT,5
-KEF,Reykjavik,IS,5
-SEA,Seattle,US,5
-TBS,Tbilisi,GE,5
-TLV,Tel Aviv,IL,5
-TFS,Tenerife,ES,5
-TIA,Tirana,AL,5
-YVR,Vancouver,CA,5
-WDH,Windhoek,NA,5
-BCN,Barcelona,ES,4
-BOG,Bogota,CO,4
-BGI,Bridgetown,BB,4
-EZE,Buenos Aires,AR,4
-CAI,Cairo,EG,4
-CKG,Chongqing,CN,4
-EBB,Entebbe,UG,4
-FAO,Faro,PT,4
-FUK,Fukuoka,JP,4
-BAH,Manama,BH,4
-MBJ,Montego Bay,JM,4
-NAP,Napels,IT,4
-SWF,Newburgh,US,4
-SSA,Salvador,BR,4
-IAD,Washington,US,4
-ACC,Accra,GH,3
-TNR,Antananarivo,MG,3
-BWI,Baltimore,US,3
-BEY,Beirut,LB,3
-CEB,Cebu,PH,3
-CTU,Chengdu,CN,3
-COK,Cochin,IN,3
-DOH,Doha,QA,3
-DUB,Dublin,IE,3
-FAE,Faroe Eilanden,FO,3
-FUE,Fuerteventura,ES,3
-GRO,Girona,ES,3
-GUA,Guatemala City,GT,3
-HRE,Harare,ZW,3
-KGL,Kigali,RW,3
-JRO,Kilimanjaro,TZ,3
-KBV,Krabi,TH,3
-LIM,Lima,PE,3
-LHR,Londen,GB,3
-MPM,Maputo,MZ,3
-PFO,Paphos,CY,3
-PBM,Paramaribo,SR,3
-PEN,Penang,MY,3
-RVN,Rovaniemi,FI,3
-SJU,San Juan,PR,3
-SCL,Santiago,CL,3
-SPU,Split,HR,3
-SUB,Surabaya,ID,3
-UBN,Ulaanbataar,MN,3
-VIE,Wenen,AT,3
-ALC,Alicante,ES,2
-ALA,Almaty,KZ,2
-AMM,Amman,JO,2
-AYT,Antalya,TR,2
-ATL,Atlanta,US,2
-GYD,Baku,AZ,2
-BJL,Banjul,GM,2
-BRI,Bari,IT,2
-BLR,Bengaluru,IN,2
-BGY,Bergamo,IT,2
-BIO,Bilbao,ES,2
-BUD,Budapest,HU,2
-YYC,Calgary,CA,2
-CCS,Caracas,VE,2
-CNX,Chiang Mai,TH,2
-KIV,Chisinau,MD,2
-DFW,Dallas,US,2
-DAR,Dar es Salaam,TZ,2
-FOR,Fortaleza,BR,2
-GBE,Gaborone,BW,2
-GVA,Geneve,CH,2
-PTP,Guadeloupe,GP,2
-YHM,Hamilton,CA,2
-HGH,Hangzhou,CN,2
-IAH,Houston,US,2
-KHI,Karachi,PK,2
-KTM,Kathmandu,NP,2
-BKI,Kota Kinabalu,MY,2
-KUT,Kutaisi,GE,2
-LOS,Lagos,NG,2
-ACE,Lanzarote,ES,2
-LXR,Luxor,EG,2
-FDF,Martinique,MQ,2
-MDE,Medellin,CO,2
-MSP,Minneapolis,US,2
-MBA,Mombasa,KE,2
-EVE,Narvik,NO,2
-NGB,Ningbo,CN,2
-OKA,Okinawa,JP,2
-OLB,Olbia,IT,2
-PER,Perth,AU,2
-POS,Port of Spain,TT,2
-PDX,Portland,US,2
-RUN,Reunion,RE,2
-RUH,Riyadh,SA,2
-FCO,Rome,IT,2
-SAN,San Diego,US,2
-SAL,San Salvador,SV,2
-SDQ,Santo Domingo,DO,2
-SVQ,Sevilla,ES,2
-SSH,Sharm el Sheikh,EG,2
-SXM,Sint Maarten,SX,2
-SKP,Skopje,MK,2
-SOF,Sofia,BG,2
-LYR,Spitsbergen,NO,3
-ARN,Stockholm,SE,2
-TOS,Tromso,NO,2
-ABJ,Abidjan,CI,1
-ADL,Adelaide,AU,1
-AEY,Akureyri,IS,1
-ANC,Anchorage,US,1
-IXZ,Andaman Islands,IN,1
-AQJ,Aqaba,JO,1
-NQZ,Astana,KZ,1
-ATH,Athens,GR,1
-AUS,Austin,US,1
-BNX,Banja Luka,BA,1
-BEL,Belem,BR,1
-BEG,Belgrado,RS,1
-BZE,Belize,BZ,1
-BDA,Bermuda,BM,1
-BVC,Boa Vista,CV,1
-BJV,Bodrum,TR,1
-BLQ,Bologna,IT,1
-BRS,Bristol,GB,1
-BWN,Brunei,BN,1
-OTP,Bucharest,RO,1
-CTG,Cartagena,CO,1
-CMN,Casablanca,MA,1
-CHS,Charleston,US,1
-HAH,Comoren,KM,1
-CKY,Conakry,GN,1
-DSS,Dakar,SN,1
-DLM,Dalaman,TR,1
-DMM,Dammam,SA,1
-DVO,Davao,PH,1
-DEN,Denver,US,1
-DAC,Dhaka,BD,1
-DJE,Djerba,TN,1
-DLA,Douala,CM,1
-DBV,Dubrovnik,HR,1
-YEG,Edmonton,CA,1
-EBL,Erbil,IQ,1
-ESU,Essaouira,MA,1
-FEZ,Fes,MA,1
-NAN,Fiji,FJ,1
-RSW,Fort Myers,US,1
-FOC,Fuzhou,CN,1
-GPS,Galapagos,EC,1
-GDN,Gdansk,PL,1
-GEO,Georgetown,GY,1
-GOI,Goa,IN,1
-GOT,Gothenburg,SE,1
-LPA,Gran Canaria,ES,1
-GND,Grenada,GD,1
-GYE,Guayaquil,EC,1
-HOG,Holguin,CU,1
-HYD,Hyderabad,IN,1
-INN,Innsbruck,AT,1
-ADB,Izmir,TR,1
-JED,Jeddah,SA,1
-CJU,Jeju,KR,1
-JER,Jersey,JE,1
-OGG,Kahului,US,1
-ASR,Kayseri,TR,1
-KRT,Khartoum,SD,1
-FIH,Kinshasa,CD,1
-CPH,Kopenhagen,DK,1
-KRK,Kraków,PL,1
-LXA,Lhasa,CN,1
-LIR,Liberia,CR,1
-LFW,Lomé,TG,1
-SJD,Los Cabos,MX,1
-LAD,Luanda,AO,1
-LUN,Lusaka,ZM,1
-MGA,Managua,NI,1
-MAO,Manaus,BR,1
-MAN,Manchester,GB,1
-RMF,Marsa Alam,EG,1
-HRI,Mattala,LK,1
-MXP,Milaan,IT,1
-MIR,Monastir,TN,1
-ROB,Monrovia,LR,1
-NDR,Nador,MA,1
-NGS,Nagasaki,JP,1
-NKG,Nanjing,CN,1
-BNA,Nashville,US,1
-NAS,Nassau,BS,1
-MSY,New Orleans,US,1
-GOH,Nuuk,GL,1
-OAX,Oaxaca,MX,1
-OSS,Osh,KG,1
-OSL,Oslo,NO,1
-OVD,Oviedo,ES,1
-ROR,Palau,PW,1
-CDG,Parijs,FR,1
-PEG,Perugia,IT,1
-PHX,Phoenix,US,1
-POM,Port Moresby,PG,1
-RAI,Praia,CV,1
-PLS,Providenciales,TC,1
-PVR,Puerto Vallarta,MX,1
-PUY,Pula,HR,1
-TAO,Qingdao,CN,1
-YQB,Quebec City,CA,1
-UIO,Quito,EC,1
-RBA,Rabat,MA,1
-REC,Recife,BR,1
-REU,Reus,ES,1
-RIX,Riga,LV,1
-RTB,Roatan,HN,1
-UVF,Saint Lucia,LC,1
-SVD,Saint Vincent,VC,1
-SLL,Salalah,OM,1
-SLC,Salt Lake City,US,1
-SZG,Salzburg,AT,1
-SAP,San Pedro Sula,HN,1
-JTR,Santorini,GR,1
-SYX,Sanya,CN,1
-TMS,Sao Tome,ST,1
-SZX,Shenzhen,CN,1
-PPT,Tahiti,PF,1
-TNG,Tangier,MA,1
-IKA,Teheran,IR,1
-TER,Terceira,PT,1
-TTU,Tetouan,MA,1
-SKG,Thessaloniki,GR,1
-TAB,Tobago,TT,1
-TZL,Tuzla,BA,1
-VRA,Varadero,CU,1
-VAR,Varna,BG,1
-VFA,Victoria Falls,ZW,1
-VNO,Vilnius,LT,1
-WAW,Warsaw,PL,1
-WNZ,Wenzhou,CN,1
-XMN,Xiamen,CN,1
-RGN,Yangon,MM,1
-EVN,Yerevan,AM,1
-ZAD,Zadar,HR,1
-ZAG,Zagreb,HR,1
-AGA,Agadir,MA,
-AHO,Alghero,IT,
-ESB,Ankara,TR,
-ANU,Antigua,AG,
-APW,Apia,WS,
-ASU,Asuncion,PY,
-IXB,Bagdogra,IN,
-BRC,Bariloche,AR,
-BSL,Basel,CH,
-CNF,Belo Horizonte,BR,
-BHX,Birmingham,GB,
-OXB,Bissau,GW,
-BZN,Bozeman,US,
-BTS,Bratislava,SK,
-BDS,Brindisi,IT,
-EIS,British Virgin Islands,VG,
-BOJ,Burgas,BG,
-CAG,Cagliari,IT,
-CNS,Cairns,AU,
-CLO,Cali,CO,
-CTA,Catania,IT,
-CHC,Christchurch,NZ,
-COO,Cotonou,BJ,
-TAE,Daegu,KR,
-VIL,Dakhla,EH,
-DTW,Detroit,US,
-DUR,Durban,ZA,
-ETM,Eilat,IL,
-FLR,Florence,IT,
-FNA,Freetown,SL,
-GZT,Gaziantep,TR,
-GLA,Glasgow,GB,
-GCM,Grand Cayman,KY,
-GRR,Grand Rapids,US,
-GDL,Guadalajara,MX,
-HGA,Hargeisa,SO,
-HEL,Helsinki,FI,
-IGU,Iguacu,BR,
-YGR,Iles de la Madeleine,CA,
-JAX,Jacksonville,US,
-YIA,Jogyakarta,ID,
-MCI,Kansas City,US,
-KTW,Katowice,PL,
-KOA,Kona,US,
-KSC,Kosice,SK,
-MQP,Kruger,ZA,
-KCH,Kuching,MY,
-LPB,La Paz,BO,
-LHE,Lahore,PK,
-LNY,Lanai,US,
-LGK,Langkawi,MY,
-LCA,Larnaca,CY,
-LIH,Lihue,US,
-LJU,Ljubljana,SI,
-LOP,Lombok,ID,
-LUX,Luxemburg,LU,
-LYS,Lyon,FR,
-MFM,Macao,MO,
-MAD,Madrid,ES,
-MDC,Manado,ID,
-MRS,Marseille,FR,
-DZA,Mayotte,YT,
-KNO,Medan,ID,
-MDZ,Mendoza,AR,
-MKK,Molokai,US,
-SVO,Moskou,RU,
-MID,Mérida,MX,
-NQY,Newquay,GB,
-NCE,Nice,FR,
-OAK,Oakland,US,
-OZZ,Ouarzazate,MA,
-IPC,Paaseiland,CL,
-PPG,Pago Pago,AS,
-PHL,Philadelphia,US,
-PQC,Phu Quoc,VN,
-PDV,Plovdiv,BG,
-VLI,Port Vila,VU,
-PRG,Praag,CZ,
-RAR,Rarotonga,CK,
-RJK,Rijeka,HR,
-STX,Saint Croix,VI,
-STT,Saint Thomas,VI,
-SKD,Samarkand,UZ,
-CTS,Sapporo,JP,
-SJJ,Sarajevo,BA,
-SAV,Savannah,US,
-SOQ,Sorong,ID,
-TLL,Tallinn,EE,
-TPA,Tampa,US,
-TRS,Triëst,IT,
-TUN,Tunis,TN,
-VNS,Varanasi,IN,
-NSI,Yaounde,CM,
-YZF,Yellowknife,CA,
-RSU,Yeosu,KR,
-CGO,Zhengzhou,CN,
-ZRH,Zürich,CH,
+iata,naam,land,deals_per_jaar,tags
+BKK,Bangkok,TH,36,
+DPS,Bali,ID,22,
+CPT,Kaapstad,ZA,21,
+JNB,Johannesburg,ZA,18,
+NYC,New York,US,18,stedentrip
+PVG,Shanghai,CN,14,
+LAX,Los Angeles,US,13,
+DXB,Dubai,AE,12,
+KUL,Kuala Lumpur,MY,12,
+PTY,Panama City,PA,11,
+HKT,Phuket,TH,11,
+BOM,Mumbai,IN,9,
+GRU,Sao Paulo,BR,9,
+SIN,Singapore,SG,9,
+SGN,Ho Chi Minh City,VN,8,
+HAN,Hanoi,VN,7,
+HKG,Hong Kong,HK,7,
+NBO,Nairobi,KE,7,
+MLA,Malta,MT,6,
+SID,Sal,CV,6,
+FNC,Funchal,PT,5,
+LIS,Lissabon,PT,5,stedentrip
+RAK,Marrakech,MA,5,
+BGW,Baghdad,IQ,3,
+OPO,Porto,PT,3,stedentrip
+XIY,Xi An,CN,3,
+MAA,Chennai,IN,2,
+MCO,Orlando,US,2,
+WUH,Wuhan,CN,2,
+BNE,Brisbane,AU,1,
+PNH,Phnom Penh,KH,1,
+VCE,Venetië,IT,1,stedentrip
+CAN,Guangzhou,CN,,
+PMO,Palermo,IT,,
+ICN,Seoul,KR,18,
+CUN,Cancun,MX,17,
+CGK,Jakarta,ID,16,
+MNL,Manila,PH,14,
+CUR,Curacao,CW,13,
+PEK,Beijing,CN,11,
+SFO,San Francisco,US,11,
+HND,Tokio,JP,11,
+AKL,Auckland,NZ,10,
+BOS,Boston,US,10,
+SYD,Sydney,AU,10,
+YHZ,Halifax,CA,9,
+GIG,Rio de Janeiro,BR,9,
+YYZ,Toronto,CA,9,
+ZNZ,Zanzibar,TZ,9,
+HAV,Havana,CU,8,
+IST,Istanbul,TR,8,stedentrip
+MIA,Miami,US,8,
+MCT,Muscat,OM,8,
+SEZ,Seychellen,SC,8,
+BON,Bonaire,BQ,7,
+CMB,Colombo,LK,7,
+MEL,Melbourne,AU,7,
+PUJ,Punta Cana,DO,7,
+ADD,Addis Ababa,ET,6,
+ORD,Chicago,US,6,
+IBZ,Ibiza,ES,6,
+KWI,Koeweit,KW,6,
+LAS,Las Vegas,US,6,
+AGP,Malaga,ES,6,
+MLE,Malediven,MV,6,
+MEX,Mexico City,MX,6,
+DEL,New Delhi,IN,6,
+SJO,San Jose,CR,6,
+TPE,Taipei,TW,6,
+VLC,Valencia,ES,6,stedentrip
+AUH,Abu Dhabi,AE,5,
+AUA,Aruba,AW,5,
+FRU,Bishkek,KG,5,
+EDI,Edinburgh,GB,5,stedentrip
+HNL,Honolulu,US,5,
+HRG,Hurghada,EG,5,
+PMI,Mallorca,ES,5,
+MRU,Mauritius,MU,5,
+YUL,Montreal,CA,5,
+KIX,Osaka,JP,5,
+PDL,Ponta Delgada,PT,5,
+KEF,Reykjavik,IS,5,
+SEA,Seattle,US,5,
+TBS,Tbilisi,GE,5,
+TLV,Tel Aviv,IL,5,
+TFS,Tenerife,ES,5,
+TIA,Tirana,AL,5,
+YVR,Vancouver,CA,5,
+WDH,Windhoek,NA,5,
+BCN,Barcelona,ES,4,stedentrip
+BOG,Bogota,CO,4,
+BGI,Bridgetown,BB,4,
+EZE,Buenos Aires,AR,4,
+CAI,Cairo,EG,4,
+CKG,Chongqing,CN,4,
+EBB,Entebbe,UG,4,
+FAO,Faro,PT,4,
+FUK,Fukuoka,JP,4,
+BAH,Manama,BH,4,
+MBJ,Montego Bay,JM,4,
+NAP,Napels,IT,4,stedentrip
+SWF,Newburgh,US,4,
+SSA,Salvador,BR,4,
+IAD,Washington,US,4,
+ACC,Accra,GH,3,
+TNR,Antananarivo,MG,3,
+BWI,Baltimore,US,3,
+BEY,Beirut,LB,3,
+CEB,Cebu,PH,3,
+CTU,Chengdu,CN,3,
+COK,Cochin,IN,3,
+DOH,Doha,QA,3,
+DUB,Dublin,IE,3,stedentrip
+FAE,Faroe Eilanden,FO,3,
+FUE,Fuerteventura,ES,3,
+GRO,Girona,ES,3,
+GUA,Guatemala City,GT,3,
+HRE,Harare,ZW,3,
+KGL,Kigali,RW,3,
+JRO,Kilimanjaro,TZ,3,
+KBV,Krabi,TH,3,
+LIM,Lima,PE,3,
+LHR,Londen,GB,3,stedentrip
+MPM,Maputo,MZ,3,
+PFO,Paphos,CY,3,
+PBM,Paramaribo,SR,3,
+PEN,Penang,MY,3,
+RVN,Rovaniemi,FI,3,
+SJU,San Juan,PR,3,
+SCL,Santiago,CL,3,
+SPU,Split,HR,3,
+SUB,Surabaya,ID,3,
+UBN,Ulaanbataar,MN,3,
+VIE,Wenen,AT,3,stedentrip
+ALC,Alicante,ES,2,
+ALA,Almaty,KZ,2,
+AMM,Amman,JO,2,
+AYT,Antalya,TR,2,
+ATL,Atlanta,US,2,
+GYD,Baku,AZ,2,
+BJL,Banjul,GM,2,
+BRI,Bari,IT,2,
+BLR,Bengaluru,IN,2,
+BGY,Bergamo,IT,2,
+BIO,Bilbao,ES,2,
+BUD,Budapest,HU,2,
+YYC,Calgary,CA,2,
+CCS,Caracas,VE,2,
+CNX,Chiang Mai,TH,2,
+KIV,Chisinau,MD,2,
+DFW,Dallas,US,2,
+DAR,Dar es Salaam,TZ,2,
+FOR,Fortaleza,BR,2,
+GBE,Gaborone,BW,2,
+GVA,Geneve,CH,2,
+PTP,Guadeloupe,GP,2,
+YHM,Hamilton,CA,2,
+HGH,Hangzhou,CN,2,
+IAH,Houston,US,2,
+KHI,Karachi,PK,2,
+KTM,Kathmandu,NP,2,
+BKI,Kota Kinabalu,MY,2,
+KUT,Kutaisi,GE,2,
+LOS,Lagos,NG,2,
+ACE,Lanzarote,ES,2,
+LXR,Luxor,EG,2,
+FDF,Martinique,MQ,2,
+MDE,Medellin,CO,2,
+MSP,Minneapolis,US,2,
+MBA,Mombasa,KE,2,
+EVE,Narvik,NO,2,
+NGB,Ningbo,CN,2,
+OKA,Okinawa,JP,2,
+OLB,Olbia,IT,2,
+PER,Perth,AU,2,
+POS,Port of Spain,TT,2,
+PDX,Portland,US,2,
+RUN,Reunion,RE,2,
+RUH,Riyadh,SA,2,
+FCO,Rome,IT,2,stedentrip
+SAN,San Diego,US,2,
+SAL,San Salvador,SV,2,
+SDQ,Santo Domingo,DO,2,
+SVQ,Sevilla,ES,2,stedentrip
+SSH,Sharm el Sheikh,EG,2,
+SXM,Sint Maarten,SX,2,
+SKP,Skopje,MK,2,
+SOF,Sofia,BG,2,
+LYR,Spitsbergen,NO,3,
+ARN,Stockholm,SE,2,stedentrip
+TOS,Tromso,NO,2,
+ABJ,Abidjan,CI,1,
+ADL,Adelaide,AU,1,
+AEY,Akureyri,IS,1,
+ANC,Anchorage,US,1,
+IXZ,Andaman Islands,IN,1,
+AQJ,Aqaba,JO,1,
+NQZ,Astana,KZ,1,
+ATH,Athens,GR,1,
+AUS,Austin,US,1,
+BNX,Banja Luka,BA,1,
+BEL,Belem,BR,1,
+BEG,Belgrado,RS,1,
+BZE,Belize,BZ,1,
+BDA,Bermuda,BM,1,
+BVC,Boa Vista,CV,1,
+BJV,Bodrum,TR,1,
+BLQ,Bologna,IT,1,stedentrip
+BRS,Bristol,GB,1,
+BWN,Brunei,BN,1,
+OTP,Bucharest,RO,1,
+CTG,Cartagena,CO,1,
+CMN,Casablanca,MA,1,
+CHS,Charleston,US,1,
+HAH,Comoren,KM,1,
+CKY,Conakry,GN,1,
+DSS,Dakar,SN,1,
+DLM,Dalaman,TR,1,
+DMM,Dammam,SA,1,
+DVO,Davao,PH,1,
+DEN,Denver,US,1,
+DAC,Dhaka,BD,1,
+DJE,Djerba,TN,1,
+DLA,Douala,CM,1,
+DBV,Dubrovnik,HR,1,
+YEG,Edmonton,CA,1,
+EBL,Erbil,IQ,1,
+ESU,Essaouira,MA,1,
+FEZ,Fes,MA,1,
+NAN,Fiji,FJ,1,
+RSW,Fort Myers,US,1,
+FOC,Fuzhou,CN,1,
+GPS,Galapagos,EC,1,
+GDN,Gdansk,PL,1,
+GEO,Georgetown,GY,1,
+GOI,Goa,IN,1,
+GOT,Gothenburg,SE,1,
+LPA,Gran Canaria,ES,1,
+GND,Grenada,GD,1,
+GYE,Guayaquil,EC,1,
+HOG,Holguin,CU,1,
+HYD,Hyderabad,IN,1,
+INN,Innsbruck,AT,1,
+ADB,Izmir,TR,1,
+JED,Jeddah,SA,1,
+CJU,Jeju,KR,1,
+JER,Jersey,JE,1,
+OGG,Kahului,US,1,
+ASR,Kayseri,TR,1,
+KRT,Khartoum,SD,1,
+FIH,Kinshasa,CD,1,
+CPH,Kopenhagen,DK,1,stedentrip
+KRK,Kraków,PL,1,
+LXA,Lhasa,CN,1,
+LIR,Liberia,CR,1,
+LFW,Lomé,TG,1,
+SJD,Los Cabos,MX,1,
+LAD,Luanda,AO,1,
+LUN,Lusaka,ZM,1,
+MGA,Managua,NI,1,
+MAO,Manaus,BR,1,
+MAN,Manchester,GB,1,
+RMF,Marsa Alam,EG,1,
+HRI,Mattala,LK,1,
+MXP,Milaan,IT,1,stedentrip
+MIR,Monastir,TN,1,
+ROB,Monrovia,LR,1,
+NDR,Nador,MA,1,
+NGS,Nagasaki,JP,1,
+NKG,Nanjing,CN,1,
+BNA,Nashville,US,1,
+NAS,Nassau,BS,1,
+MSY,New Orleans,US,1,
+GOH,Nuuk,GL,1,
+OAX,Oaxaca,MX,1,
+OSS,Osh,KG,1,
+OSL,Oslo,NO,1,
+OVD,Oviedo,ES,1,
+ROR,Palau,PW,1,
+CDG,Parijs,FR,1,stedentrip
+PEG,Perugia,IT,1,
+PHX,Phoenix,US,1,
+POM,Port Moresby,PG,1,
+RAI,Praia,CV,1,
+PLS,Providenciales,TC,1,
+PVR,Puerto Vallarta,MX,1,
+PUY,Pula,HR,1,
+TAO,Qingdao,CN,1,
+YQB,Quebec City,CA,1,
+UIO,Quito,EC,1,
+RBA,Rabat,MA,1,
+REC,Recife,BR,1,
+REU,Reus,ES,1,
+RIX,Riga,LV,1,stedentrip
+RTB,Roatan,HN,1,
+UVF,Saint Lucia,LC,1,
+SVD,Saint Vincent,VC,1,
+SLL,Salalah,OM,1,
+SLC,Salt Lake City,US,1,
+SZG,Salzburg,AT,1,
+SAP,San Pedro Sula,HN,1,
+JTR,Santorini,GR,1,
+SYX,Sanya,CN,1,
+TMS,Sao Tome,ST,1,
+SZX,Shenzhen,CN,1,
+PPT,Tahiti,PF,1,
+TNG,Tangier,MA,1,
+IKA,Teheran,IR,1,
+TER,Terceira,PT,1,
+TTU,Tetouan,MA,1,
+SKG,Thessaloniki,GR,1,
+TAB,Tobago,TT,1,
+TZL,Tuzla,BA,1,
+VRA,Varadero,CU,1,
+VAR,Varna,BG,1,
+VFA,Victoria Falls,ZW,1,
+VNO,Vilnius,LT,1,stedentrip
+WAW,Warsaw,PL,1,
+WNZ,Wenzhou,CN,1,
+XMN,Xiamen,CN,1,
+RGN,Yangon,MM,1,
+EVN,Yerevan,AM,1,
+ZAD,Zadar,HR,1,
+ZAG,Zagreb,HR,1,
+AGA,Agadir,MA,,
+AHO,Alghero,IT,,
+ESB,Ankara,TR,,
+ANU,Antigua,AG,,
+APW,Apia,WS,,
+ASU,Asuncion,PY,,
+IXB,Bagdogra,IN,,
+BRC,Bariloche,AR,,
+BSL,Basel,CH,,
+CNF,Belo Horizonte,BR,,
+BHX,Birmingham,GB,,
+OXB,Bissau,GW,,
+BZN,Bozeman,US,,
+BTS,Bratislava,SK,,stedentrip
+BDS,Brindisi,IT,,
+EIS,British Virgin Islands,VG,,
+BOJ,Burgas,BG,,
+CAG,Cagliari,IT,,
+CNS,Cairns,AU,,
+CLO,Cali,CO,,
+CTA,Catania,IT,,
+CHC,Christchurch,NZ,,
+COO,Cotonou,BJ,,
+TAE,Daegu,KR,,
+VIL,Dakhla,EH,,
+DTW,Detroit,US,,
+DUR,Durban,ZA,,
+ETM,Eilat,IL,,
+FLR,Florence,IT,,stedentrip
+FNA,Freetown,SL,,
+GZT,Gaziantep,TR,,
+GLA,Glasgow,GB,,
+GCM,Grand Cayman,KY,,
+GRR,Grand Rapids,US,,
+GDL,Guadalajara,MX,,
+HGA,Hargeisa,SO,,
+HEL,Helsinki,FI,,
+IGU,Iguacu,BR,,
+YGR,Iles de la Madeleine,CA,,
+JAX,Jacksonville,US,,
+YIA,Jogyakarta,ID,,
+MCI,Kansas City,US,,
+KTW,Katowice,PL,,
+KOA,Kona,US,,
+KSC,Kosice,SK,,
+MQP,Kruger,ZA,,
+KCH,Kuching,MY,,
+LPB,La Paz,BO,,
+LHE,Lahore,PK,,
+LNY,Lanai,US,,
+LGK,Langkawi,MY,,
+LCA,Larnaca,CY,,
+LIH,Lihue,US,,
+LJU,Ljubljana,SI,,stedentrip
+LOP,Lombok,ID,,
+LUX,Luxemburg,LU,,
+LYS,Lyon,FR,,
+MFM,Macao,MO,,
+MAD,Madrid,ES,,stedentrip
+MDC,Manado,ID,,
+MRS,Marseille,FR,,
+DZA,Mayotte,YT,,
+KNO,Medan,ID,,
+MDZ,Mendoza,AR,,
+MKK,Molokai,US,,
+SVO,Moskou,RU,,
+MID,Mérida,MX,,
+NQY,Newquay,GB,,
+NCE,Nice,FR,,stedentrip
+OAK,Oakland,US,,
+OZZ,Ouarzazate,MA,,
+IPC,Paaseiland,CL,,
+PPG,Pago Pago,AS,,
+PHL,Philadelphia,US,,
+PQC,Phu Quoc,VN,,
+PDV,Plovdiv,BG,,
+VLI,Port Vila,VU,,
+PRG,Praag,CZ,,stedentrip
+RAR,Rarotonga,CK,,
+RJK,Rijeka,HR,,
+STX,Saint Croix,VI,,
+STT,Saint Thomas,VI,,
+SKD,Samarkand,UZ,,
+CTS,Sapporo,JP,,
+SJJ,Sarajevo,BA,,
+SAV,Savannah,US,,
+SOQ,Sorong,ID,,
+TLL,Tallinn,EE,,stedentrip
+TPA,Tampa,US,,
+TRS,Triëst,IT,,
+TUN,Tunis,TN,,
+VNS,Varanasi,IN,,
+NSI,Yaounde,CM,,
+YZF,Yellowknife,CA,,
+RSU,Yeosu,KR,,
+CGO,Zhengzhou,CN,,
+ZRH,Zürich,CH,,stedentrip
