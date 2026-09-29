@@ -72,7 +72,9 @@ ORIGIN_AIRPORTS = [
     "AMS",  # Amsterdam Schiphol
     "BRU",  # Brussel
     "DUS",  # Düsseldorf
-    # Later uit te breiden met o.a.: RTM, EIN, CRL, CGN, FRA, MUC, HAM, ...
+    "RTM",  # Rotterdam The Hague
+    "EIN",  # Eindhoven
+    # Later uit te breiden met o.a.: CRL, CGN, FRA, MUC, HAM, ...
 ]
 
 # Bestemmingen staan in analytics/destinations.csv; per tier (populariteit) staat
