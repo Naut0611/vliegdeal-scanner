@@ -12,9 +12,10 @@ strijd is met hun gebruiksvoorwaarden. Houd het volume laag en gespreid; de
 instellingen hieronder zijn een bewuste afweging tussen dekking en blokkaderisico.
 """
 
+import json
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import fast_flights as ff
 
@@ -283,4 +284,170 @@ def build_scan_row(route_id, depart_date, return_date, insights, cabin_class="ec
         "outbound_duration_minutes": insights.get("outbound_duration_minutes"),
         "outbound_airlines": insights.get("outbound_airlines"),
     }
+
+
+def save_scans_bulk(client, rows):
+    """Als save_scan, maar voor meerdere rijen in 1 databaseverzoek (zie build_calendar_scan_rows
+    hieronder: één kalenderraster levert tot ~60 rijen tegelijk op -- 60 losse inserts zou onnodig
+    veel databaseverkeer geven voor iets dat niets met scraping-etiquette te maken heeft)."""
+    if not rows:
+        return True
+    for poging in range(1, DB_MAX_ATTEMPTS + 1):
+        try:
+            client.table("scans").insert(rows).execute()
+            return True
+        except Exception as e:
+            print(f"    DB-FOUT bulk-insert (poging {poging}/{DB_MAX_ATTEMPTS}): {type(e).__name__}: {e}")
+            if poging < DB_MAX_ATTEMPTS:
+                time.sleep(DB_RETRY_DELAY_SECONDS * poging)
+    return False
+
+
+# ============================================================
+# KALENDERRASTER -- alternatief voor een vaste steekproefdatum (zie 1_scanner.py)
+# ============================================================
+#
+# Google Flights doet, zodra je op het datumveld klikt, zelf een achtergrondverzoek naar
+# 'GetCalendarPicker' -- hetzelfde verzoek dat een bezoeker triggert door handmatig op de datum te
+# klikken. Dat antwoord bevat ~60 opeenvolgende ECHTE dagprijzen (voor een vaste verblijfsduur) rond
+# de opgegeven datum, in 1 extra achtergrondverzoek bovenop de resultatenpagina die er toch al
+# geladen wordt. Daarmee kunnen we de daadwerkelijk goedkoopste dag in een maand VINDEN, in plaats
+# van te gokken met een vast, willekeurig verspreid steekproefdatum (zie generate_sample_dates in
+# 1_scanner.py) en te hopen dat die toevallig goed uitpakt.
+#
+# Twee kanttekeningen, bewust zo geaccepteerd (zie CLAUDE.md):
+# - GetCalendarPicker is een niet-gedocumenteerd, intern Google-endpoint en de klik op het datumveld
+#   gebeurt op een vaste pixelpositie (_KALENDER_KLIK_X/_Y, zie CALENDAR_VIEWPORT hieronder) omdat
+#   tekst-/rol-gebaseerde locators bleken te botsen met verborgen toegankelijkheids-duplicaten van
+#   dezelfde datumtekst elders op de pagina. Kan zonder aankondiging stuk gaan bij een wijziging aan
+#   Google's kant -- vandaar dat 1_scanner.py hier altijd op terugvalt naar de oude, directe aanpak
+#   (fetch_calendar_prices geeft dan None terug i.p.v. een fout op te werpen).
+# - Voor een dunbevolkte route (weinig vluchtaanbod) geeft Google soms maar een handvol dagen terug
+#   i.p.v. het volledige raster (~60 dagen) -- MIN_CALENDAR_DAYS is de ondergrens waaronder we dat
+#   als 'te weinig data' behandelen en dus ook terugvallen op de oude aanpak.
+
+# Vast venstergrootte waarop _KALENDER_KLIK_X/_Y is bepaald; 1_scanner.py moet de pagina met exact
+# deze viewport openen.
+CALENDAR_VIEWPORT = {"width": 1400, "height": 1000}
+_KALENDER_KLIK_X, _KALENDER_KLIK_Y = 922, 163
+_GET_CALENDAR_PICKER = "GetCalendarPicker"
+MIN_CALENDAR_DAYS = 30
+
+
+def _chunks_uit_calendar_response(raw_text):
+    """
+    Splitst Google's 'batchexecute'-envelope (')]}'' + lengte-geprefixte JSON-regels) in de losse
+    JSON-chunks. De opgegeven lengte-prefix bleek niet exact overeen te komen met de regel-lengte
+    (een paar bytes verschil, vermoedelijk regeleinde-normalisatie) -- daarom simpelweg op regels
+    splitsen i.p.v. op de opgegeven bytelengte vertrouwen: elke chunk staat toch al op zijn eigen
+    regel, direct na een regel die alleen een getal bevat.
+    """
+    regels = raw_text.split("\n")
+    chunks, i = [], 0
+    while i < len(regels):
+        if re.fullmatch(r"\d+", regels[i] or ""):
+            if i + 1 < len(regels):
+                chunks.append(regels[i + 1])
+            i += 2
+        else:
+            i += 1
+    return chunks
+
+
+def parse_calendar_picker_response(raw_text):
+    """
+    Geeft een lijst dicts {depart_date, return_date, price} terug uit de ruwe
+    GetCalendarPicker-response. Gooit een fout als de envelope niet herkend wordt (bijv. omdat
+    Google 'm heeft gewijzigd) -- de aanroeper (fetch_calendar_prices) vangt dat op en valt terug
+    op de oude, directe aanpak i.p.v. dat de hele run hierop vastloopt.
+    """
+    if not raw_text.startswith(")]}'"):
+        raise ValueError("Onverwachte response-vorm: verwachtte Google's \")]}'\"-envelope.")
+    chunks = _chunks_uit_calendar_response(raw_text)
+    if not chunks:
+        raise ValueError("Geen JSON-chunk gevonden in de response.")
+    buiten = json.loads(chunks[0])
+    # buiten = [["wrb.fr", null, "<geneste JSON-string>", ...]]
+    binnen = json.loads(buiten[0][2])
+    # binnen[1] = lijst van [depart_date, return_date, [[null, prijs], opaque_token], vlag]
+    dagen = []
+    for entry in binnen[1]:
+        depart_date, return_date, prijsinfo, *_ = entry
+        dagen.append({"depart_date": depart_date, "return_date": return_date, "price": prijsinfo[0][1]})
+    return dagen
+
+
+def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cabin_class="economy"):
+    """
+    Laadt de resultatenpagina voor (depart_date -> depart_date + stay_days) en klikt daarna het
+    datumveld open, wat Google's 'GetCalendarPicker'-achtergrondverzoek triggert. Geeft een lijst
+    dagprijzen terug (zie parse_calendar_picker_response), of None als dat verzoek niet gezien werd,
+    te weinig dagen opleverde (< MIN_CALENDAR_DAYS, zie hierboven) of niet te parsen was -- de
+    aanroeper valt dan terug op de oude, directe aanpak. Gebruikt de gegeven `page` (dezelfde
+    browsersessie als de rest van de run, i.p.v. een nieuwe sessie op te zetten).
+    """
+    return_date = (datetime.strptime(depart_date, "%Y-%m-%d") + timedelta(days=stay_days)).strftime("%Y-%m-%d")
+    url = build_search_url(origin, destination, depart_date, return_date, seat=cabin_class)
+
+    gevangen = []
+
+    def on_response(resp):
+        if _GET_CALENDAR_PICKER in resp.url:
+            gevangen.append(resp)
+
+    page.on("response", on_response)
+    try:
+        page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        page.wait_for_timeout(1500)
+        accept_consent_if_present(page)
+        page.wait_for_timeout(1500)
+
+        page.mouse.click(_KALENDER_KLIK_X, _KALENDER_KLIK_Y)
+        page.wait_for_timeout(3000)
+
+        if not gevangen:
+            return None
+        dagen = parse_calendar_picker_response(gevangen[0].text())
+        if len(dagen) < MIN_CALENDAR_DAYS:
+            return None
+        return dagen
+    except Exception as e:
+        print(f"    kalenderraster mislukt ({type(e).__name__}: {e}), val terug op vaste datum.")
+        return None
+    finally:
+        page.remove_listener("response", on_response)
+
+
+def select_cheapest_in_month(dagen, anchor_date):
+    """
+    Geeft de dag met de laagste prijs terug UIT DEZELFDE KALENDERMAAND als anchor_date (bij een
+    gelijke prijs: de vroegste datum). Blijft zo dicht bij wat 1_scanner.py's vaste steekproef ook
+    al deed (één representatieve dag per maand) -- alleen is dat nu de daadwerkelijk goedkoopste dag
+    van die maand i.p.v. een vast, willekeurig verspreid steekproefdatum. Valt terug op de
+    goedkoopste dag van het HELE venster als er (onverwacht) geen enkele dag in diezelfde maand zit.
+    """
+    maand = anchor_date[:7]  # 'YYYY-MM'
+    kandidaten = [d for d in dagen if d["depart_date"][:7] == maand] or dagen
+    return min(kandidaten, key=lambda d: (d["price"], d["depart_date"]))
+
+
+def build_calendar_scan_rows(route_id, dagen, cabin_class):
+    """
+    Zet de kalenderraster-dagprijzen om naar kale 'scans'-rijen (prijs, geen label/heenreisdetails
+    -- die kent Google's kalenderraster niet, alleen de losse resultatenpagina). Puur geschiedenis:
+    is_deal staat altijd op False (geen label = geen kandidaat, zie 2_curate.py), maar de prijzen
+    tellen wel mee in route_medians() se discount_pct-berekening -- dus meer, snellere historie dan
+    voorheen, als bijeffect van het kalenderraster.
+    """
+    rijen = []
+    for d in dagen:
+        stay_days = (datetime.strptime(d["return_date"], "%Y-%m-%d") - datetime.strptime(d["depart_date"], "%Y-%m-%d")).days
+        rijen.append({
+            "route_id": route_id, "depart_date": d["depart_date"], "return_date": d["return_date"],
+            "stay_days": stay_days, "lowest_price": d["price"], "insight_label": None,
+            "price_floor": None, "is_deal": False, "cabin_class": cabin_class,
+            "outbound_stops": None, "outbound_stopover_airports": None,
+            "outbound_duration_minutes": None, "outbound_airlines": None,
+        })
+    return rijen
 

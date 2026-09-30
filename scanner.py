@@ -9,35 +9,58 @@ repo zodat de nachtelijke run gratis, onbeperkt op GitHub Actions kan draaien
 private repo blijft leidend voor de architectuurdocumentatie; wijzigingen
 hier horen ook daar (of andersom) doorgevoerd te worden.
 
-Kernidee: in plaats van zelf, per route, een zware historische prijs-baseline
-op te bouwen, lezen we Google Flights' EIGEN ingebouwde vergelijking uit: het
-"Prijsinzichten"-blok. Dat blok vertelt of een prijs laag/gemiddeld/hoog is
-t.o.v. wat Google als normaal beschouwt voor die route. Daardoor is er maar 1
-paginalading per (route, datum)-combinatie nodig.
+Kernidee, ONGEWIJZIGD t.o.v. de vorige versie van dit script: we lezen Google
+Flights' EIGEN ingebouwde vergelijking uit, het "Prijsinzichten"-blok
+(laag/gemiddeld/hoog), i.p.v. zelf een prijs-baseline te bouwen.
 
-Elke combinatie levert 1 rij in de tabel `scans` op. Er zijn ~400 bestemmingen
-(destinations.csv), veel te veel voor één run: lib/planner.py kiest
-per run de meest achterstallige combinaties, tot `--budget` scans (populaire
-bestemmingen vaker, obscure zeldzamer). Deze stap publiceert zelf NIETS: de
-private repo's 2_curate.py, 3_recheck.py en de menselijke review (4_review.py)
-bepalen wat er op de website komt.
+WAT IS NIEUW: in plaats van direct te scannen op een vast, willekeurig verspreid
+steekproefdatum (de oude generate_sample_dates-aanpak), doet deze versie eerst een
+KALENDERRASTER-check (lib/scraper.fetch_calendar_prices): 1 extra achtergrondverzoek
+bovenop de toch al geladen pagina, dat Google's eigen 'GetCalendarPicker' aanroept en
+~60 ECHTE dagprijzen teruggeeft. Daarmee kiezen we de daadwerkelijk goedkoopste dag
+BINNEN dezelfde maand als het geplande steekproefdatum, i.p.v. te gokken. Die dag wordt
+vervolgens op de gebruikelijke manier volledig gescand (Prijsinzichten-label +
+tussenstops/reisduur/maatschappij van de heenreis, exact zoals voorheen) -- dus geen
+functionaliteit verloren, alleen een betere gekozen datum.
+
+De losse dagprijzen uit het kalenderraster worden ook zelf weggeschreven (kaal: alleen
+prijs, geen label/heenreis -- dat kent het raster niet) als extra, snellere scangeschiedenis
+voor 2_curate.py's discount_pct-mediaan. Binnen één run wordt het kalenderraster van
+eenzelfde (route, cabin class) maar 1x opgehaald (RASTER_AL_OPGEHAALD hieronder) -- bij
+tier 1 (2 steekproefdata/maand) zou een tweede keer grotendeels dezelfde ~60 dagen
+opnieuw ophalen, puur dubbel werk.
+
+TERUGVAL: is er voor een route geen (bruikbaar) kalenderraster -- te weinig vluchtaanbod
+(zie lib/scraper.MIN_CALENDAR_DAYS), een netwerkfout, of Google's paginastructuur is
+gewijzigd -- dan scant deze versie gewoon de oorspronkelijk geplande datum direct, exact
+zoals de vorige versie van dit script altijd deed. Geen enkele bestemming valt hierdoor
+buiten de boot.
+
+Elke combinatie levert zo 1 (volledig) + tot ~60 (kale) rijen in de tabel `scans` op. Er
+zijn ~400 bestemmingen (destinations.csv), veel te veel voor één run: lib/planner.py
+kiest per run de meest achterstallige combinaties, tot `--budget` scans (populaire
+bestemmingen vaker, obscure zeldzamer) -- deze planning-laag is ONGEWIJZIGD, alleen HOE
+een gekozen combinatie wordt afgehandeld is anders. Deze stap publiceert zelf NIETS: de
+private repo's 2_curate.py, 3_recheck.py en de menselijke review (4_review.py) bepalen
+wat er op de website komt.
 
 Naast Economy scannen we ook Business Class, voor alle intercontinentale bestemmingen
 (destinations.land niet in lib/regions.EUROPE) -- bewust, met dezelfde tier-cadans als
-hun Economy-scan; dit verhoogt het scanvolume aanzienlijk (zie CLAUDE.md). Elke scan
-legt ook (uit dezelfde paginalading) het aantal tussenstops, de tussenstop-
-luchthaven(s) en de reisduur van de HEENreis vast (lib/scraper.extract_outbound_itinerary).
+hun Economy-scan; dit verhoogt het scanvolume aanzienlijk (zie CLAUDE.md).
 
-LET OP: dit scraped Google Flights (via een echte, headless browser), wat in
-strijd is met hun gebruiksvoorwaarden. Gebruik met mate: spreid zoekopdrachten
-over tijd, draai nooit meerdere scanners tegelijk, en behandel de instellingen
-als een bewuste afweging tussen dekking en risico op blokkade (vertraging en
-retries staan in lib/scraper.py).
+LET OP: dit scraped Google Flights (via een echte, headless browser), wat in strijd is
+met hun gebruiksvoorwaarden. Gebruik met mate: spreid zoekopdrachten over tijd, draai
+NOOIT meerdere scanners tegelijk (dit script bewaakt dat zelf niet, zie lib/scanrun.py's
+toelichting -- scripts/run_daily.sh is de enige lock-houder), en behandel de instellingen
+als een bewuste afweging tussen dekking en risico op blokkade (vertraging en retries
+staan in lib/scraper.py). Het kalenderraster leunt op een niet-gedocumenteerd, intern
+Google-endpoint (zie lib/scraper.py's toelichting bij CALENDAR_VIEWPORT) -- kan zonder
+aankondiging veranderen, vandaar de terugval hierboven.
 
 Gebruik (vanuit de projectroot van DEZE repo):
     python scanner.py                 # normale run (SCANS_PER_RUN scans), schrijft naar Supabase
     python scanner.py --budget 50     # kleinere run
-    python scanner.py --limit 3       # stop na 3 scans (om te testen)
+    python scanner.py --limit 3       # stop na 3 combinaties (om te testen)
     python scanner.py --dest BKK,DPS  # alleen deze bestemmingen (IATA), bijv. gerichte herscan
     python scanner.py --dry-run       # scrapen zonder iets naar Supabase te schrijven
 """
@@ -53,13 +76,18 @@ from lib.destinations import load_destinations
 from lib.planner import TIER_CONFIG, Combo, select_due_combos, steady_state_load
 from lib.regions import is_europe
 from lib.scraper import (
+    CALENDAR_VIEWPORT,
     MAX_CONSECUTIVE_ERRORS,
     SEARCH_DELAY_MAX_SECONDS,
     SEARCH_DELAY_MIN_SECONDS,
     STAY_DAYS,
+    build_calendar_scan_rows,
     build_scan_row,
+    fetch_calendar_prices,
     save_scan,
+    save_scans_bulk,
     search_route_insights,
+    select_cheapest_in_month,
 )
 
 # ============================================================
@@ -77,15 +105,25 @@ ORIGIN_AIRPORTS = [
     # Later uit te breiden met o.a.: CRL, CGN, FRA, MUC, HAM, ...
 ]
 
-# Bestemmingen staan in analytics/destinations.csv; per tier (populariteit) staat
-# in analytics/lib/planner.py hoeveel datumparen en hoe vaak er gescand wordt.
+# Bestemmingen staan in destinations.csv; per tier (populariteit) staat in lib/planner.py
+# hoeveel datumparen en hoe vaak er gescand wordt.
 
-# Maximaal aantal scans per run. ~15-17 s per scan, dus 500 scans ≈ 2,5 uur.
-# Hoger = snellere dekking, maar meer verkeer richting Google (blokkaderisico).
-SCANS_PER_RUN = 1000
+# Maximaal aantal COMBINATIES per run (elk kost 1-2 paginaladingen: 2 bij een geslaagd
+# kalenderraster, 1 bij een terugval). Was 1000, maar op de private repo gemeten duurtijd
+# per combinatie bleek sterk te wisselen (twee losse metingen op dezelfde dag: ~37s en
+# ~217s/combinatie) -- vermoedelijk door de opgetelde testbelasting van die dag, niet per
+# se representatief voor een normale run. Voorlopig bewust lager gezet zodat de run
+# betrouwbaar op tijd klaar is voor de rest van de pijplijn (zie CLAUDE.md in de private
+# repo over de repository_dispatch-koppeling naar pipeline.yml daar); bijstellen zodra een
+# paar echte runs (GitHub Actions' eigen logs) een stabieler beeld geven.
+SCANS_PER_RUN = 500
 
-# Hoeveel maanden vooruit, en hoeveel steekproefdata per maand.
-MONTHS_AHEAD = 6
+# Hoeveel maanden vooruit, en hoeveel steekproefdata per maand. Was 6; opgehoogd naar 8 zodat
+# 6_calendar.py's 'goedkope maanden' een volledig jaarrond-beeld eerder compleet krijgt --
+# veilig te verhogen zonder het nachtelijke budget aan te raken: dit vergroot alleen de pool aan
+# (route, datum)-combinaties die na verloop van tijd aan de beurt komen (select_due_combos kiest
+# nog steeds tot --budget per run), niet het aantal scans per nacht zelf.
+MONTHS_AHEAD = 8
 SEARCH_START_OFFSET_DAYS = 10  # nooit dichter bij vandaag zoeken dan dit
 
 # Hoe ver we terugkijken naar eerdere scans (>= het langste tier-interval).
@@ -105,7 +143,8 @@ def generate_sample_dates(
     """
     Genereert een lichte steekproef van (vertrek, terugkomst)-datumparen:
     een handvol representatieve data per maand, verspreid over de komende
-    'months_ahead' maanden.
+    'months_ahead' maanden. Deze datums zijn het startpunt voor het kalenderraster
+    (zie fetch_calendar_prices) -- niet per se de datum die uiteindelijk gescand wordt.
     """
     vandaag = datetime.now()
     vroegste = vandaag + timedelta(days=start_offset_days)
@@ -158,7 +197,10 @@ def load_last_scanned(client, route_ids):
     laatste scan} over de laatste LOOKBACK_DAYS dagen (cabin_class erbij: Economy- en
     Business-scanrecentheid worden onafhankelijk bijgehouden, zie Combo.key). Mislukte
     scans tellen mee, zodat een geblokkeerde run bij een herstart niet meteen op
-    dezelfde combinaties inslaat.
+    dezelfde combinaties inslaat. Dankzij het kalenderraster (zie fetch_calendar_prices)
+    bevat `scans` nu ook kale, snel opgebouwde dagprijzen rond elke gescande combinatie --
+    die tellen hier vanzelf mee, dus een dag die al via een ANDERE combinatie se
+    kalenderraster is meegenomen, geldt al als 'recent gescand'.
 
     Geen `.in_(route_id, ...)`-filter: met ~1.200 routes wordt de URL te lang.
     De tabel bevat alleen onze eigen routes; onbekende route_ids slaan we over.
@@ -216,11 +258,53 @@ def build_combos(origins, destinations):
     return combos
 
 
+def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
+    """
+    Handelt 1 geplande combinatie af: eerst een kalenderraster-poging (tenzij dit (route,
+    cabin class) al in `raster_al_opgehaald` zit, zie de docstring bovenaan dit bestand),
+    dan de volledige scan op de daadwerkelijk goedkoopste dag van die maand (of, bij een
+    terugval, gewoon de geplande dag). Geeft (row, bulk_rijen) terug -- bulk_rijen is een
+    lege lijst bij een terugval of een al opgehaald raster.
+    """
+    stay_days = (datetime.strptime(combo.return_date, "%Y-%m-%d")
+                 - datetime.strptime(combo.depart_date, "%Y-%m-%d")).days
+
+    werkelijke_depart, werkelijke_return = combo.depart_date, combo.return_date
+    bulk_rijen = []
+
+    raster_sleutel = (combo.origin, combo.destination, combo.cabin_class)
+    if raster_sleutel not in raster_al_opgehaald:
+        raster_al_opgehaald.add(raster_sleutel)
+        dagen = fetch_calendar_prices(
+            page, combo.origin, combo.destination, combo.depart_date, stay_days,
+            cabin_class=combo.cabin_class,
+        )
+        time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
+
+        if dagen:
+            beste = select_cheapest_in_month(dagen, combo.depart_date)
+            werkelijke_depart, werkelijke_return = beste["depart_date"], beste["return_date"]
+            print(f"    kalenderraster: {len(dagen)} dagen, goedkoopste in {combo.depart_date[:7]}: "
+                  f"{werkelijke_depart} (€{beste['price']:.0f})")
+            # De 'beste' dag krijgt zo dadelijk de volledige (label+heenreis) rij; geen
+            # dubbele/verouderde kale rij voor diezelfde dag ernaast.
+            bulk_rijen = [r for r in build_calendar_scan_rows(route_id, dagen, combo.cabin_class)
+                          if r["depart_date"] != werkelijke_depart]
+        else:
+            print("    geen (bruikbaar) kalenderraster, val terug op de geplande datum.")
+
+    insights = search_route_insights(
+        page, combo.origin, combo.destination, werkelijke_depart, werkelijke_return, seat=combo.cabin_class,
+    )
+    row = build_scan_row(route_id, werkelijke_depart, werkelijke_return, insights, cabin_class=combo.cabin_class)
+    return row, bulk_rijen
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scan Google Flights Prijsinzichten -> Supabase")
     parser.add_argument("--budget", type=int, default=SCANS_PER_RUN,
-                        help=f"maximaal aantal scans deze run (standaard {SCANS_PER_RUN})")
-    parser.add_argument("--limit", type=int, help="stop na dit aantal scans (om te testen)")
+                        help=f"maximaal aantal combinaties deze run (standaard {SCANS_PER_RUN})")
+    parser.add_argument("--limit", type=int, help="stop na dit aantal combinaties (om te testen)")
     parser.add_argument("--dest", help="alleen deze bestemmingen, kommagescheiden IATA-codes")
     parser.add_argument("--dry-run", action="store_true", help="niets naar Supabase schrijven of ervan lezen")
     args = parser.parse_args()
@@ -254,28 +338,31 @@ def main():
 
     budget = min(args.budget, args.limit) if args.limit is not None else args.budget
     te_scannen, n_aan_de_beurt = select_due_combos(combos, last_scanned, datetime.now(timezone.utc), budget)
-    print(f"{n_aan_de_beurt} combinaties zijn aan de beurt; {len(te_scannen)} worden deze run gescand "
-          f"(~{len(te_scannen) * 16 / 3600:.1f} uur).\n")
+    print(f"{n_aan_de_beurt} combinaties zijn aan de beurt; {len(te_scannen)} worden deze run gescand.\n")
 
     n_nieuw = n_deals = n_fouten = n_db_fouten = 0
     opeenvolgende_fouten = 0
+    raster_al_opgehaald = set()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        # 1 browsersessie voor de hele run: de consent-cookie blijft behouden.
-        page = browser.new_page(locale="nl-NL")
+        # 1 browsersessie voor de hele run: de consent-cookie blijft behouden. Vast
+        # venstergrootte nodig voor het kalenderraster (zie lib/scraper.CALENDAR_VIEWPORT).
+        page = browser.new_page(locale="nl-NL", viewport=CALENDAR_VIEWPORT)
 
         for combo in te_scannen:
             origin, destination = combo.origin, combo.destination
-            depart_date, return_date = combo.depart_date, combo.return_date
             route_id = route_ids.get((origin, destination))
 
             print(f"[{n_nieuw + 1}/{len(te_scannen)}] {origin} -> {destination} "
-                  f"(tier {combo.tier}, {combo.cabin_class}), heen {depart_date}, terug {return_date}")
-            insights = search_route_insights(page, origin, destination, depart_date, return_date, seat=combo.cabin_class)
-            row = build_scan_row(route_id, depart_date, return_date, insights, cabin_class=combo.cabin_class)
+                  f"(tier {combo.tier}, {combo.cabin_class}), gepland heen {combo.depart_date}, "
+                  f"terug {combo.return_date}")
+            row, bulk_rijen = scan_combo(page, client, route_id, combo, raster_al_opgehaald)
 
-            if insights is None:
+            if bulk_rijen and client is not None and not save_scans_bulk(client, bulk_rijen):
+                n_db_fouten += 1
+
+            if row["insight_label"] == "fout":
                 print("  Geen resultaat (fout na retries).\n")
                 n_fouten += 1
                 opeenvolgende_fouten += 1
