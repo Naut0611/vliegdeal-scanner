@@ -23,6 +23,14 @@ vervolgens op de gebruikelijke manier volledig gescand (Prijsinzichten-label +
 tussenstops/reisduur/maatschappij van de heenreis, exact zoals voorheen) -- dus geen
 functionaliteit verloren, alleen een betere gekozen datum.
 
+OOK NIEUW: combinaties die aansluiten bij een actuele abonnee-voorkeur (tabel `subscribers`:
+vertrekpunt/bestemmingsland(en)/reisperiode, zelfde matchlogica als de private repo's
+send_newsletter.py via lib/subscriber_match.py) krijgen voorrang bij een beperkt budget (zie
+maak_subscriber_prioriteit_fn en lib/planner.py's prioriteit_fn-parameter) -- daar weten we
+aantoonbare interesse in, de rest komt daarna aan de beurt. Geen gewicht naar AANTAL matchende
+abonnees: dat zou een populaire voorkeur nog verder bevoordelen t.o.v. een enkele abonnee met
+een nichewens.
+
 De losse dagprijzen uit het kalenderraster worden ook zelf weggeschreven (kaal: alleen
 prijs, geen label/heenreis -- dat kent het raster niet) als extra, snellere scangeschiedenis
 voor 2_curate.py's discount_pct-mediaan. Binnen één run wordt het kalenderraster van
@@ -72,9 +80,11 @@ from datetime import datetime, timedelta, timezone
 
 from playwright.sync_api import sync_playwright
 
+from lib.db import fetch_all
 from lib.destinations import load_destinations
 from lib.planner import TIER_CONFIG, Combo, select_due_combos, steady_state_load
 from lib.regions import is_europe
+from lib.subscriber_match import matches_countries, matches_period
 from lib.scraper import (
     CALENDAR_VIEWPORT,
     MAX_CONSECUTIVE_ERRORS,
@@ -258,6 +268,47 @@ def build_combos(origins, destinations):
     return combos
 
 
+def load_subscriber_wensen(client):
+    """
+    Haalt actuele abonnee-voorkeuren op uit `subscribers` (toegestaan voor de service-role-key,
+    zie de private repo's migrations/008_subscribers.sql's RLS-policy: alleen INSERT voor anon,
+    select blijft dus voorbehouden aan scripts die de service-role-key gebruiken, zoals dit
+    script). [] bij een dry-run (geen client) -- dan is er sowieso geen scanprioriteit te bepalen
+    op basis van iets wat we niet hebben opgehaald.
+    """
+    if client is None:
+        return []
+    return fetch_all(lambda: client.table("subscribers").select(
+        "origin_airport, region, countries, period_from, period_to"
+    ))
+
+
+def maak_subscriber_prioriteit_fn(subscribers, land_per_iata):
+    """
+    Geeft een prioriteit_fn voor select_due_combos (zie lib/planner.py): 0 (dus eerst) voor een
+    combinatie die bij MINSTENS ÉÉN abonnee-voorkeur past (vertrekpunt, bestemmingsland/regio,
+    reisperiode -- dezelfde matchlogica als send_newsletter.py gebruikt om deals te kiezen, nu
+    vooraf toegepast op WAT we scannen i.p.v. achteraf op wat we al gevonden hebben), anders 1.
+    We weten dat daar aantoonbare interesse in is; de rest komt na die groep aan de beurt.
+    Bewust geen gewicht naar AANTAL matchende abonnees -- dat zou populaire voorkeuren nog verder
+    bevoordelen t.o.v. een enkele abonnee met een nichewens, wat niet de bedoeling is.
+    """
+    def matcht(combo, subscriber):
+        if subscriber.get("origin_airport") and combo.origin != subscriber["origin_airport"]:
+            return False
+        land = land_per_iata.get(combo.destination)
+        if land is None:
+            return False
+        if not matches_countries(subscriber, land, is_europe(land)):
+            return False
+        return matches_period(subscriber, combo.depart_date)
+
+    def prioriteit(combo):
+        return 0 if any(matcht(combo, s) for s in subscribers) else 1
+
+    return prioriteit
+
+
 def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
     """
     Handelt 1 geplande combinatie af: eerst een kalenderraster-poging (tenzij dit (route,
@@ -336,9 +387,18 @@ def main():
         route_ids = ensure_routes(client, {(c.origin, c.destination) for c in combos})
         last_scanned = load_last_scanned(client, route_ids)
 
+    subscribers = load_subscriber_wensen(client)
+    land_per_iata = {b["iata"]: b["land"] for b in bestemmingen}
+    prioriteit_fn = maak_subscriber_prioriteit_fn(subscribers, land_per_iata)
+
     budget = min(args.budget, args.limit) if args.limit is not None else args.budget
-    te_scannen, n_aan_de_beurt = select_due_combos(combos, last_scanned, datetime.now(timezone.utc), budget)
-    print(f"{n_aan_de_beurt} combinaties zijn aan de beurt; {len(te_scannen)} worden deze run gescand.\n")
+    te_scannen, n_aan_de_beurt = select_due_combos(
+        combos, last_scanned, datetime.now(timezone.utc), budget, prioriteit_fn=prioriteit_fn,
+    )
+    n_subscriber_relevant = sum(1 for c in te_scannen if prioriteit_fn(c) == 0)
+    print(f"{n_aan_de_beurt} combinaties zijn aan de beurt; {len(te_scannen)} worden deze run gescand "
+          f"({n_subscriber_relevant} daarvan sluiten aan bij een abonnee-voorkeur, {len(subscribers)} "
+          f"abonnees).\n")
 
     n_nieuw = n_deals = n_fouten = n_db_fouten = 0
     opeenvolgende_fouten = 0

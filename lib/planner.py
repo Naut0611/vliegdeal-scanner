@@ -64,22 +64,31 @@ def priority_ratio(combo, last_scanned, now):
     return leeftijd_dagen / TIER_CONFIG[combo.tier]["interval_days"]
 
 
-def select_due_combos(combos, last_scanned, now, budget, rng=random):
+def select_due_combos(combos, last_scanned, now, budget, rng=random, prioriteit_fn=None):
     """
     Kiest hoogstens `budget` combinaties die aan de beurt zijn.
 
     combos        lijst Combo
     last_scanned  {combo.key: datetime van de laatste scan (ook mislukte)}
     now           datetime (zelfde tijdzone-soort als last_scanned)
+    prioriteit_fn optioneel: Combo -> getal, laag = eerst. Weegt zwaarder dan recency: bij een
+                  beperkt budget raakt een hogere-prioriteitsgroep (lager getal) dus EERST
+                  volledig bijgewerkt voordat een lagere-prioriteitsgroep aan de beurt komt,
+                  ongeacht hoe lang die laatste al niet gescand is. None (standaard): alle
+                  combinaties gelijk, ongewijzigd t.o.v. voorheen. Bewust een functie i.p.v.
+                  bijv. een origin->getal-dict: een prioriteit kan op willekeurige velden van de
+                  Combo berusten (bv. 1_scanner.py's abonnee-interesse, die op origin ÉN
+                  destination ÉN datum let, niet op één veld alleen).
     Geeft (gekozen, aantal_aan_de_beurt) terug; `gekozen` is geschud.
     """
+    prioriteit_fn = prioriteit_fn or (lambda c: 0)
     aan_de_beurt = []
     for c in combos:
         ratio = priority_ratio(c, last_scanned, now)
         if ratio >= 1:
-            aan_de_beurt.append((-ratio, c.tier, rng.random(), c))
+            aan_de_beurt.append((prioriteit_fn(c), -ratio, c.tier, rng.random(), c))
 
-    aan_de_beurt.sort(key=lambda t: t[:3])
+    aan_de_beurt.sort(key=lambda t: t[:4])
     gekozen = [c for *_, c in aan_de_beurt[:max(budget, 0)]]
     rng.shuffle(gekozen)
     return gekozen, len(aan_de_beurt)
