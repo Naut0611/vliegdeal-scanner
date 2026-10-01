@@ -330,8 +330,15 @@ def save_scans_bulk(client, rows):
 # deze viewport openen.
 CALENDAR_VIEWPORT = {"width": 1400, "height": 1000}
 _KALENDER_KLIK_X, _KALENDER_KLIK_Y = 922, 163
+# Retourveld, direct rechts van het vertrekveld op dezelfde hoogte (zelfde vaste-pixelpositie-aanpak
+# en dezelfde kanttekeningen als _KALENDER_KLIK_X/_Y hierboven) -- zie fetch_return_date_prices().
+_RETOUR_KLIK_X, _RETOUR_KLIK_Y = 1091, 163
 _GET_CALENDAR_PICKER = "GetCalendarPicker"
 MIN_CALENDAR_DAYS = 30
+# Het retourraster is van zichzelf al klein (Google toont maar een beperkt aantal nachten rond de
+# opgegeven verblijfsduur, geen los-van-de-werkelijkheid lange periode) -- een lagere ondergrens dan
+# MIN_CALENDAR_DAYS is dus terecht, niet een teken van een mislukte/onvolledige response.
+MIN_RETURN_DAYS = 10
 
 
 def _chunks_uit_calendar_response(raw_text):
@@ -369,10 +376,15 @@ def parse_calendar_picker_response(raw_text):
     buiten = json.loads(chunks[0])
     # buiten = [["wrb.fr", null, "<geneste JSON-string>", ...]]
     binnen = json.loads(buiten[0][2])
-    # binnen[1] = lijst van [depart_date, return_date, [[null, prijs], opaque_token], vlag]
+    # binnen[1] = lijst van [depart_date, return_date, [[null, prijs], opaque_token], vlag]. Bij een
+    # dunbevolkte (vaak langeafstands-)combinatie ontbreekt prijsinfo voor sommige dagen (geen
+    # vluchtcombinatie beschikbaar voor die specifieke dagcombinatie) -- zo'n dag slaan we gewoon
+    # over i.p.v. de HELE respons te laten mislukken op één ontbrekende prijs.
     dagen = []
     for entry in binnen[1]:
         depart_date, return_date, prijsinfo, *_ = entry
+        if not prijsinfo or not prijsinfo[0]:
+            continue
         dagen.append({"depart_date": depart_date, "return_date": return_date, "price": prijsinfo[0][1]})
     return dagen
 
@@ -416,6 +428,79 @@ def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cab
         return None
     finally:
         page.remove_listener("response", on_response)
+
+
+def fetch_return_date_prices(page, origin, destination, depart_date, stay_days=STAY_DAYS, cabin_class="economy"):
+    """
+    Tweede stap na fetch_calendar_prices(): nu het VERTREKpunt al vastligt (de daadwerkelijk
+    goedkoopste dag uit het eerste raster), hier de daadwerkelijk goedkoopste RETOURdatum zoeken
+    i.p.v. klakkeloos een vaste verblijfsduur aanhouden. Laadt de resultatenpagina voor (depart_date
+    -> depart_date + stay_days) en klikt daarna het RETOURveld open (i.p.v. het vertrekveld) --
+    triggert hetzelfde 'GetCalendarPicker'-verzoek, nu met vast vertrekpunt en variabele retourdatum.
+    Het venster dat Google teruggeeft wordt breder naarmate `stay_days` groter is (empirisch bepaald,
+    geen officieel gedocumenteerd gedrag) -- lib.planner.stay_bounds() kiest daarom `stay_days` als
+    het midden van de gewenste verblijfsduur-spreiding voor dit bestemmingstype, en filter_by_stay_
+    length() dwingt daarna de daadwerkelijke min/max-grenzen af (Google's venster is een handig
+    uitgangspunt, maar geen garantie dat het precies samenvalt met wat wij willen).
+
+    Kost 1 extra paginalading t.o.v. alleen fetch_calendar_prices (zie CLAUDE.md): een bewuste
+    afweging voor een echt geoptimaliseerde retourdatum i.p.v. een vaste aanname.
+    """
+    return_date = (datetime.strptime(depart_date, "%Y-%m-%d") + timedelta(days=stay_days)).strftime("%Y-%m-%d")
+    url = build_search_url(origin, destination, depart_date, return_date, seat=cabin_class)
+
+    gevangen = []
+
+    def on_response(resp):
+        if _GET_CALENDAR_PICKER in resp.url:
+            gevangen.append(resp)
+
+    page.on("response", on_response)
+    try:
+        page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        page.wait_for_timeout(1500)
+        accept_consent_if_present(page)
+        page.wait_for_timeout(1500)
+
+        page.mouse.click(_RETOUR_KLIK_X, _RETOUR_KLIK_Y)
+        page.wait_for_timeout(3000)
+
+        if not gevangen:
+            return None
+        dagen = parse_calendar_picker_response(gevangen[0].text())
+        if len(dagen) < MIN_RETURN_DAYS:
+            return None
+        return dagen
+    except Exception as e:
+        print(f"    retourraster mislukt ({type(e).__name__}: {e}), behoud vaste verblijfsduur.")
+        return None
+    finally:
+        page.remove_listener("response", on_response)
+
+
+def filter_by_stay_length(dagen, depart_date, min_nachten, max_nachten):
+    """
+    Beperkt het retourraster tot verblijfsduren binnen [min_nachten, max_nachten] (zie
+    Combo.min_stay_days/max_stay_days/lib.planner.stay_bounds()): een stedentrip en een verre reis
+    hebben een compleet andere zinvolle lengte, dus 'goedkoopste retourdatum' betekent niet
+    'absoluut goedkoopste optie in het hele raster' maar 'goedkoopste BINNEN een passende
+    verblijfsduur voor dit bestemmingstype'.
+    """
+    vertrek = datetime.strptime(depart_date, "%Y-%m-%d")
+    return [
+        d for d in dagen
+        if min_nachten <= (datetime.strptime(d["return_date"], "%Y-%m-%d") - vertrek).days <= max_nachten
+    ]
+
+
+def select_cheapest_return(dagen):
+    """
+    Geeft de dag met de laagste prijs terug (bij een gelijke prijs: de vroegste retourdatum). Geen
+    maand-restrictie zoals select_cheapest_in_month(): de aanroeper filtert hiervoor al op een
+    zinvolle verblijfsduur (zie filter_by_stay_length hierboven), dus elke overgebleven optie is per
+    definitie geschikt -- deze functie hoeft alleen nog de goedkoopste te kiezen.
+    """
+    return min(dagen, key=lambda d: (d["price"], d["return_date"]))
 
 
 def select_cheapest_in_month(dagen, anchor_date):

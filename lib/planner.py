@@ -33,6 +33,33 @@ TIER_CONFIG = {
 # maar de vernieuwing van populaire routes blijft niet maandenlang liggen.
 NEVER_SCANNED_RATIO = 2.0
 
+# Basis-verblijfsduurgrenzen (min_nachten, max_nachten) per regio, voor het RETOURraster
+# (lib/scraper.fetch_return_date_prices/filter_by_stay_length): een verre reis vraagt sowieso meer
+# dagen om de vliegtijd de moeite waard te maken, dus een hogere ondergrens EN een hogere bovengrens
+# dan een Europese vakantie.
+BASE_STAY_BOUNDS = {
+    "europa": (3, 21),
+    "verre_reis": (10, 30),
+}
+
+
+def stay_bounds(tags, europa):
+    """
+    (min_nachten, max_nachten, anker_dagen) voor het retourraster. De regio (europa) bepaalt de
+    basisgrenzen (zie BASE_STAY_BOUNDS); de 'stedentrip'-tag (destinations.csv, handmatig gecureerd)
+    verlaagt daarbinnen ALLEEN de ondergrens naar 2 nachten -- een stedentrip mag kort, maar sluit
+    een langere vakantie naar diezelfde bestemming niet uit (San Francisco is bijv. zowel een
+    stedentrip van 5-7 dagen als een langere vakantie mogelijk, dus de bovengrens blijft gewoon die
+    van zijn regio i.p.v. een eigen, krappe stedentrip-bovengrens). De anker is het midden van het
+    resulterende bereik, zodat Google's venster (dat breder wordt naarmate de anker groter is, zie
+    CLAUDE.md) zo goed mogelijk de hele gewenste spreiding dekt.
+    """
+    min_nachten, max_nachten = BASE_STAY_BOUNDS["europa" if europa else "verre_reis"]
+    if "stedentrip" in tags:
+        min_nachten = 2
+    anker_dagen = round((min_nachten + max_nachten) / 2)
+    return min_nachten, max_nachten, anker_dagen
+
 
 class Combo(NamedTuple):
     origin: str
@@ -41,6 +68,12 @@ class Combo(NamedTuple):
     return_date: str
     tier: int
     cabin_class: str = "economy"
+    # Retourraster-grenzen voor deze combinatie (zie stay_bounds() hierboven); de standaardwaarden
+    # komen overeen met de 'europa'-categorie, dus ongewijzigd gedrag voor elke Combo die (zoals in
+    # tests of OLD_1_scanner.py) buiten build_combos() om wordt aangemaakt.
+    min_stay_days: int = 3
+    max_stay_days: int = 21
+    retour_anker_days: int = 12
 
     @property
     def key(self):

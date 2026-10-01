@@ -19,6 +19,18 @@ def matches_region(subscriber_region, europe):
     return True  # 'alle'
 
 
+def matches_origin(subscriber, origin):
+    """
+    'origin_airports' (meerdere vertrekpunten, migratie 015, aanklikbaar op AirportPicker.tsx) is
+    leidend zodra een abonnee die heeft; zonder origin_airports valt dit terug op de oude, enkele
+    'origin_airport' -- zelfde val-terug-patroon als matches_countries hieronder t.o.v. region.
+    """
+    vertrekpunten = subscriber.get("origin_airports")
+    if vertrekpunten:
+        return origin in vertrekpunten
+    return not subscriber.get("origin_airport") or origin == subscriber["origin_airport"]
+
+
 def matches_countries(subscriber, land, europe):
     """
     'countries' (migratie 010, landcodes zelf gekozen op het inschrijfformulier) is leidend zodra

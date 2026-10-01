@@ -31,12 +31,23 @@ aantoonbare interesse in, de rest komt daarna aan de beurt. Geen gewicht naar AA
 abonnees: dat zou een populaire voorkeur nog verder bevoordelen t.o.v. een enkele abonnee met
 een nichewens.
 
-De losse dagprijzen uit het kalenderraster worden ook zelf weggeschreven (kaal: alleen
+OOK NIEUW: na het vertrekraster hierboven volgt een TWEEDE raster-poging
+(lib/scraper.fetch_return_date_prices) die, met die goedkoopste vertrekdag nu vast, Google's
+retourveld opent i.p.v. het vertrekveld -- hetzelfde 'GetCalendarPicker'-verzoek, nu met vast
+vertrekpunt en variabele retourdatum. Zo wordt niet langer klakkeloos een vaste 14-daagse
+verblijfsduur aangenomen, maar ook de daadwerkelijk goedkoopste retourdatum gezocht. Wat een
+'zinvolle' verblijfsduur is, verschilt sterk per bestemmingstype (een stedentrip naar Barcelona
+mag best 2-3 dagen zijn, een verre reis naar Sydney niet, maar San Francisco -- ondanks de
+vliegafstand -- qua karakter weer wel) -- zie lib.planner.stay_bounds() en destinations.csv's
+'stedentrip'-tag. Kost 1 extra paginalading per combinatie waarvoor het vertrekraster al
+slaagde (zie CLAUDE.md in de private repo voor de etiquette-afweging).
+
+De losse dagprijzen uit beide rasters worden ook zelf weggeschreven (kaal: alleen
 prijs, geen label/heenreis -- dat kent het raster niet) als extra, snellere scangeschiedenis
-voor 2_curate.py's discount_pct-mediaan. Binnen één run wordt het kalenderraster van
-eenzelfde (route, cabin class) maar 1x opgehaald (RASTER_AL_OPGEHAALD hieronder) -- bij
-tier 1 (2 steekproefdata/maand) zou een tweede keer grotendeels dezelfde ~60 dagen
-opnieuw ophalen, puur dubbel werk.
+voor 2_curate.py's discount_pct-mediaan. Binnen één run wordt het vertrekraster (en het daarop
+volgende retourraster) van eenzelfde (route, cabin class) maar 1x opgehaald (RASTER_AL_OPGEHAALD
+hieronder) -- bij tier 1 (2 steekproefdata/maand) zou een tweede keer grotendeels dezelfde ~60
+dagen opnieuw ophalen, puur dubbel werk.
 
 TERUGVAL: is er voor een route geen (bruikbaar) kalenderraster -- te weinig vluchtaanbod
 (zie lib/scraper.MIN_CALENDAR_DAYS), een netwerkfout, of Google's paginastructuur is
@@ -82,9 +93,9 @@ from playwright.sync_api import sync_playwright
 
 from lib.db import fetch_all
 from lib.destinations import load_destinations
-from lib.planner import TIER_CONFIG, Combo, select_due_combos, steady_state_load
+from lib.planner import TIER_CONFIG, Combo, select_due_combos, stay_bounds, steady_state_load
 from lib.regions import is_europe
-from lib.subscriber_match import matches_countries, matches_period
+from lib.subscriber_match import matches_countries, matches_origin, matches_period
 from lib.scraper import (
     CALENDAR_VIEWPORT,
     MAX_CONSECUTIVE_ERRORS,
@@ -94,10 +105,13 @@ from lib.scraper import (
     build_calendar_scan_rows,
     build_scan_row,
     fetch_calendar_prices,
+    fetch_return_date_prices,
+    filter_by_stay_length,
     save_scan,
     save_scans_bulk,
     search_route_insights,
     select_cheapest_in_month,
+    select_cheapest_return,
 )
 
 # ============================================================
@@ -114,6 +128,11 @@ ORIGIN_AIRPORTS = [
     "EIN",  # Eindhoven
     # Later uit te breiden met o.a.: CRL, CGN, FRA, MUC, HAM, ...
 ]
+
+# RTM en EIN vliegen in de praktijk nauwelijks intercontinentaal (vooral Europese
+# low-cost-netwerken); vanaf deze vertrekpunten scannen we daarom alleen Europese
+# bestemmingen -- scheelt scanbudget op combinaties die toch zelden een deal opleveren.
+EUROPE_ONLY_ORIGINS = {"RTM", "EIN"}
 
 # Bestemmingen staan in destinations.csv; per tier (populariteit) staat in lib/planner.py
 # hoeveel datumparen en hoe vaak er gescand wordt.
@@ -250,21 +269,30 @@ def build_combos(origins, destinations):
     """
     Alle (vertrekpunt, bestemming, datumpaar)-combinaties, met tier-specifieke
     datumparen. Voor intercontinentale bestemmingen (land niet in lib.regions.EUROPE)
-    komen er, met dezelfde datums/cadans, ook Business Class-combinaties bij.
+    komen er, met dezelfde datums/cadans, ook Business Class-combinaties bij -- behalve
+    vanaf een vertrekpunt in EUROPE_ONLY_ORIGINS, dat slaat intercontinentale bestemmingen
+    helemaal over (zie de toelichting bij EUROPE_ONLY_ORIGINS hierboven).
     """
     datums_per_sample = {}
     combos = []
     for dest in destinations:
+        dest_is_europe = is_europe(dest["land"])
+        min_stay, max_stay, retour_anker = stay_bounds(dest["tags"], dest_is_europe)
         n = TIER_CONFIG[dest["tier"]]["samples_per_month"]
         if n not in datums_per_sample:
             datums_per_sample[n] = generate_sample_dates(samples_per_month=n)
-        cabin_classes = ["economy", "business"] if not is_europe(dest["land"]) else ["economy"]
+        cabin_classes = ["economy", "business"] if not dest_is_europe else ["economy"]
         for origin in origins:
             if origin == dest["iata"]:
                 continue
+            if origin in EUROPE_ONLY_ORIGINS and not dest_is_europe:
+                continue
             for depart, ret in datums_per_sample[n]:
                 for cabin_class in cabin_classes:
-                    combos.append(Combo(origin, dest["iata"], depart, ret, dest["tier"], cabin_class))
+                    combos.append(Combo(
+                        origin, dest["iata"], depart, ret, dest["tier"], cabin_class,
+                        min_stay_days=min_stay, max_stay_days=max_stay, retour_anker_days=retour_anker,
+                    ))
     return combos
 
 
@@ -279,7 +307,7 @@ def load_subscriber_wensen(client):
     if client is None:
         return []
     return fetch_all(lambda: client.table("subscribers").select(
-        "origin_airport, region, countries, period_from, period_to"
+        "origin_airport, origin_airports, region, countries, period_from, period_to"
     ))
 
 
@@ -294,7 +322,7 @@ def maak_subscriber_prioriteit_fn(subscribers, land_per_iata):
     bevoordelen t.o.v. een enkele abonnee met een nichewens, wat niet de bedoeling is.
     """
     def matcht(combo, subscriber):
-        if subscriber.get("origin_airport") and combo.origin != subscriber["origin_airport"]:
+        if not matches_origin(subscriber, combo.origin):
             return False
         land = land_per_iata.get(combo.destination)
         if land is None:
@@ -312,10 +340,12 @@ def maak_subscriber_prioriteit_fn(subscribers, land_per_iata):
 def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
     """
     Handelt 1 geplande combinatie af: eerst een kalenderraster-poging (tenzij dit (route,
-    cabin class) al in `raster_al_opgehaald` zit, zie de docstring bovenaan dit bestand),
-    dan de volledige scan op de daadwerkelijk goedkoopste dag van die maand (of, bij een
-    terugval, gewoon de geplande dag). Geeft (row, bulk_rijen) terug -- bulk_rijen is een
-    lege lijst bij een terugval of een al opgehaald raster.
+    cabin class) al in `raster_al_opgehaald` zit, zie de docstring bovenaan dit bestand) om de
+    goedkoopste VERTREKdag van de maand te vinden, dan -- met dat vertrekpunt vast -- een tweede
+    raster-poging om de goedkoopste RETOURdag te vinden (i.p.v. klakkeloos STAY_DAYS aan te houden),
+    en daarna pas de volledige scan op die definitieve (vertrek, retour)-combinatie (of, bij een
+    terugval op beide rasters, gewoon de geplande dag + vaste verblijfsduur). Geeft (row, bulk_rijen)
+    terug -- bulk_rijen is leeg bij een terugval of een al opgehaald raster.
     """
     stay_days = (datetime.strptime(combo.return_date, "%Y-%m-%d")
                  - datetime.strptime(combo.depart_date, "%Y-%m-%d")).days
@@ -341,6 +371,33 @@ def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
             # dubbele/verouderde kale rij voor diezelfde dag ernaast.
             bulk_rijen = [r for r in build_calendar_scan_rows(route_id, dagen, combo.cabin_class)
                           if r["depart_date"] != werkelijke_depart]
+
+            retour_dagen = fetch_return_date_prices(
+                page, combo.origin, combo.destination, werkelijke_depart,
+                stay_days=combo.retour_anker_days, cabin_class=combo.cabin_class,
+            )
+            time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
+
+            if retour_dagen:
+                kandidaten = filter_by_stay_length(
+                    retour_dagen, werkelijke_depart, combo.min_stay_days, combo.max_stay_days,
+                )
+                if kandidaten:
+                    beste_retour = select_cheapest_return(kandidaten)
+                    werkelijke_return = beste_retour["return_date"]
+                    print(f"    retourraster: {len(retour_dagen)} opties ({len(kandidaten)} binnen "
+                          f"{combo.min_stay_days}-{combo.max_stay_days} nachten), goedkoopste retour: "
+                          f"{werkelijke_return} (€{beste_retour['price']:.0f})")
+                else:
+                    print(f"    retourraster leverde niets op binnen {combo.min_stay_days}-"
+                          f"{combo.max_stay_days} nachten, behoud vaste verblijfsduur.")
+                # Zelfde dedupe-redenering als bij het vertrekraster hierboven: de uiteindelijk
+                # gekozen retourdag (indien van toepassing) krijgt zo dadelijk de volledige rij; de
+                # rest is gewoon extra scangeschiedenis, ook buiten de min/max-grenzen.
+                bulk_rijen += [r for r in build_calendar_scan_rows(route_id, retour_dagen, combo.cabin_class)
+                               if r["return_date"] != werkelijke_return]
+            else:
+                print("    geen (bruikbaar) retourraster, behoud vaste verblijfsduur.")
         else:
             print("    geen (bruikbaar) kalenderraster, val terug op de geplande datum.")
 
