@@ -137,15 +137,22 @@ EUROPE_ONLY_ORIGINS = {"RTM", "EIN"}
 # Bestemmingen staan in destinations.csv; per tier (populariteit) staat in lib/planner.py
 # hoeveel datumparen en hoe vaak er gescand wordt.
 
-# Maximaal aantal COMBINATIES per run (elk kost 1-2 paginaladingen: 2 bij een geslaagd
-# kalenderraster, 1 bij een terugval). Was 1000, maar op de private repo gemeten duurtijd
-# per combinatie bleek sterk te wisselen (twee losse metingen op dezelfde dag: ~37s en
-# ~217s/combinatie) -- vermoedelijk door de opgetelde testbelasting van die dag, niet per
-# se representatief voor een normale run. Voorlopig bewust lager gezet zodat de run
-# betrouwbaar op tijd klaar is voor de rest van de pijplijn (zie CLAUDE.md in de private
-# repo over de repository_dispatch-koppeling naar pipeline.yml daar); bijstellen zodra een
-# paar echte runs (GitHub Actions' eigen logs) een stabieler beeld geven.
-SCANS_PER_RUN = 500
+# Maximaal aantal COMBINATIES per run (elk kost 2-3 paginaladingen: 3 bij een geslaagd vertrek- EN
+# retourraster, 1 bij een dubbele terugval). Was 1000, toen 500, maar een echte nachtelijke run op
+# DEZE repo (na de toevoeging van het retourraster) crashte na 3u35m op combinatie 241/500
+# (~54s/combinatie gemeten) -- vermoedelijk geheugenopbouw in een urenlange, ononderbroken
+# browsersessie (zie BROWSER_RESTART_EVERY hieronder, die dat risico nu beperkt). Voorlopig naar 300
+# om ruim binnen deze workflow's timeout-minutes (350, zie scan.yml) te passen, ook als een deel van
+# de combinaties traag uitpakt; bijstellen zodra een paar runs met de periodieke browserherstart een
+# stabieler beeld geven.
+SCANS_PER_RUN = 300
+
+# Na zoveel combinaties wordt de browsersessie preventief afgesloten en vers geopend (zelfde
+# consent-aanpak, accept_consent_if_present is daar al idempotent in). Een losse combinatie die
+# alsnog fataal misgaat (bv. een kapotte pipe naar Playwright's Node-driver, zoals hierboven) krijgt
+# dezelfde behandeling als een gewone mislukte scan (insight_label 'fout'), waarna de browser ook
+# meteen herstart i.p.v. de rest van de run mee te slepen in een kapotte sessie.
+BROWSER_RESTART_EVERY = 100
 
 # Hoeveel maanden vooruit, en hoeveel steekproefdata per maand. Was 6; opgehoogd naar 8 zodat
 # 6_calendar.py's 'goedkope maanden' een volledig jaarrond-beeld eerder compleet krijgt --
@@ -337,6 +344,15 @@ def maak_subscriber_prioriteit_fn(subscribers, land_per_iata):
     return prioriteit
 
 
+def nieuwe_browser_en_pagina(playwright):
+    """Opent een verse browser + pagina (zelfde instellingen als main()'s oorspronkelijke, eenmalige
+    sessie) -- gebruikt zowel bij de start van een run als bij een preventieve/noodgedwongen herstart
+    (zie BROWSER_RESTART_EVERY)."""
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page(locale="nl-NL", viewport=CALENDAR_VIEWPORT)
+    return browser, page
+
+
 def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
     """
     Handelt 1 geplande combinatie af: eerst een kalenderraster-poging (tenzij dit (route,
@@ -462,19 +478,34 @@ def main():
     raster_al_opgehaald = set()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        # 1 browsersessie voor de hele run: de consent-cookie blijft behouden. Vast
-        # venstergrootte nodig voor het kalenderraster (zie lib/scraper.CALENDAR_VIEWPORT).
-        page = browser.new_page(locale="nl-NL", viewport=CALENDAR_VIEWPORT)
+        # Eén browsersessie voor zo'n honderdtal combinaties (BROWSER_RESTART_EVERY): de
+        # consent-cookie blijft behouden binnen die sessie. Vast venstergrootte nodig voor het
+        # kalenderraster (zie lib/scraper.CALENDAR_VIEWPORT).
+        browser, page = nieuwe_browser_en_pagina(p)
 
-        for combo in te_scannen:
+        for i, combo in enumerate(te_scannen):
             origin, destination = combo.origin, combo.destination
             route_id = route_ids.get((origin, destination))
 
             print(f"[{n_nieuw + 1}/{len(te_scannen)}] {origin} -> {destination} "
                   f"(tier {combo.tier}, {combo.cabin_class}), gepland heen {combo.depart_date}, "
                   f"terug {combo.return_date}")
-            row, bulk_rijen = scan_combo(page, client, route_id, combo, raster_al_opgehaald)
+            try:
+                row, bulk_rijen = scan_combo(page, client, route_id, combo, raster_al_opgehaald)
+            except Exception as e:
+                # Een fatale fout in de browsersessie zelf (bv. een kapotte pipe naar Playwright's
+                # Node-driver na urenlang draaien) -- de bestaande retries in lib/scraper.py vangen
+                # dit soort crashes niet op, want de hele sessie is dan onbruikbaar. Behandel deze
+                # combinatie als een gewone mislukte scan en herstart de sessie voor de rest van de run.
+                print(f"  FATALE FOUT in de browsersessie ({type(e).__name__}: {e}), "
+                      f"browsersessie wordt herstart.\n")
+                row = build_scan_row(route_id, combo.depart_date, combo.return_date, None, cabin_class=combo.cabin_class)
+                bulk_rijen = []
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+                browser, page = nieuwe_browser_en_pagina(p)
 
             if bulk_rijen and client is not None and not save_scans_bulk(client, bulk_rijen):
                 n_db_fouten += 1
@@ -512,6 +543,11 @@ def main():
                 break
 
             time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
+
+            if (i + 1) % BROWSER_RESTART_EVERY == 0 and (i + 1) < len(te_scannen):
+                print(f"  (preventieve herstart van de browsersessie na {BROWSER_RESTART_EVERY} combinaties)\n")
+                browser.close()
+                browser, page = nieuwe_browser_en_pagina(p)
 
         browser.close()
 
