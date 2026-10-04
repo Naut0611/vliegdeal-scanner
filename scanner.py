@@ -154,7 +154,7 @@ EUROPE_ONLY_ORIGINS = {"RTM", "EIN"}
 # om ruim binnen deze workflow's timeout-minutes (350, zie scan.yml) te passen, ook als een deel van
 # de combinaties traag uitpakt; bijstellen zodra een paar runs met de periodieke browserherstart een
 # stabieler beeld geven.
-SCANS_PER_RUN = 3
+SCANS_PER_RUN = 300
 
 # Na zoveel combinaties wordt de browsersessie preventief afgesloten en vers geopend (zelfde
 # consent-aanpak, accept_consent_if_present is daar al idempotent in). Een losse combinatie die
