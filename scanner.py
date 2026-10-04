@@ -23,6 +23,14 @@ vervolgens op de gebruikelijke manier volledig gescand (Prijsinzichten-label +
 tussenstops/reisduur/maatschappij van de heenreis, exact zoals voorheen) -- dus geen
 functionaliteit verloren, alleen een betere gekozen datum.
 
+OOK NIEUW: het vertrekraster loopt niet meer over één, maar over alle MONTHS_AHEAD maanden: na het
+eerste raster (huidige + volgende maand) klikt lib/scraper.fetch_calendar_prices met de 'volgende
+maand'-pijl van de kalender door -- elke klik is één extra achtergrondverzoek op dezelfde pagina, geen
+nieuwe paginalading. Het raster wordt per run per (route, cabin class) gecachet: een latere combinatie
+van dezelfde route kiest de goedkoopste dag van ZIJN maand daaruit. Een ANDERE maand die daarin
+opvallend goedkoop is (>= OPVALLEND_KORTING onder de rastermediaan, max. MAX_OPVALLENDE_MAANDEN_PER_ROUTE)
+krijgt meteen een volledige scan, zodat een deal in bv. maand 4 niet weken op zijn beurt wacht.
+
 OOK NIEUW: combinaties die aansluiten bij een actuele abonnee-voorkeur (tabel `subscribers`:
 vertrekpunt/bestemmingsland(en)/reisperiode, zelfde matchlogica als de private repo's
 send_newsletter.py via lib/subscriber_match.py) krijgen voorrang bij een beperkt budget (zie
@@ -112,6 +120,7 @@ from lib.scraper import (
     search_route_insights,
     select_cheapest_in_month,
     select_cheapest_return,
+    select_notable_months,
 )
 
 # ============================================================
@@ -161,6 +170,15 @@ BROWSER_RESTART_EVERY = 100
 # nog steeds tot --budget per run), niet het aantal scans per nacht zelf.
 MONTHS_AHEAD = 8
 SEARCH_START_OFFSET_DAYS = 10  # nooit dichter bij vandaag zoeken dan dit
+
+# Het vertrekraster wordt per (route, cabin class) doorgeklikt over MONTHS_AHEAD maanden (zie
+# lib/scraper.fetch_calendar_prices(months=...)). Een andere maand dan die van de geplande
+# combinatie waarvan de goedkoopste dag minstens OPVALLEND_KORTING onder de rastermediaan ligt
+# (zelfde 20% als 2_curate.py's MIN_DISCOUNT_PCT) krijgt meteen een volledige scan, ook als die
+# maand zelf nog niet aan de beurt is -- zo wacht een deal in maand 4 niet weken op zijn beurt.
+# Gemaximeerd per route, want elke zo'n scan is een extra paginalading.
+OPVALLEND_KORTING = 0.20
+MAX_OPVALLENDE_MAANDEN_PER_ROUTE = 3
 
 # Hoe ver we terugkijken naar eerdere scans (>= het langste tier-interval).
 LOOKBACK_DAYS = max(t["interval_days"] for t in TIER_CONFIG.values())
@@ -353,36 +371,61 @@ def nieuwe_browser_en_pagina(playwright):
     return browser, page
 
 
-def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
+def _vanaf_min_datum(dagen):
+    """Alleen dagen die de scanner mag zoeken (niet dichter bij vandaag dan SEARCH_START_OFFSET_DAYS);
+    het raster begint zelf al op vandaag."""
+    min_datum = (datetime.now() + timedelta(days=SEARCH_START_OFFSET_DAYS)).strftime("%Y-%m-%d")
+    return min_datum, [d for d in dagen if d["depart_date"] >= min_datum] or dagen
+
+
+def scan_combo(page, client, route_id, combo, raster_al_opgehaald, raster_cache=None, gescand=None):
     """
     Handelt 1 geplande combinatie af: eerst een kalenderraster-poging (tenzij dit (route,
     cabin class) al in `raster_al_opgehaald` zit, zie de docstring bovenaan dit bestand) om de
     goedkoopste VERTREKdag van de maand te vinden, dan -- met dat vertrekpunt vast -- een tweede
     raster-poging om de goedkoopste RETOURdag te vinden (i.p.v. klakkeloos STAY_DAYS aan te houden),
     en daarna pas de volledige scan op die definitieve (vertrek, retour)-combinatie (of, bij een
-    terugval op beide rasters, gewoon de geplande dag + vaste verblijfsduur). Geeft (row, bulk_rijen)
-    terug -- bulk_rijen is leeg bij een terugval of een al opgehaald raster.
+    terugval op beide rasters, gewoon de geplande dag + vaste verblijfsduur).
+
+    Het vertrekraster loopt over MONTHS_AHEAD maanden (doorgeklikt, zie fetch_calendar_prices) en
+    wordt in `raster_cache` bewaard: een latere combinatie van dezelfde (route, cabin class) in deze
+    run haalt niets opnieuw op maar kiest de goedkoopste dag van ZIJN maand uit die cache. Maanden
+    die in het raster opvallend goedkoop zijn (zie OPVALLEND_KORTING) krijgen bij de eerste combinatie
+    van de route meteen een volledige scan; `gescand` ({(origin, destination, cabin, vertrekdag)})
+    onthoudt wat al volledig gescand is, zodat zo'n maand niet nog eens gescand wordt wanneer zijn
+    eigen combinatie later aan de beurt komt (row is dan None).
+
+    Geeft (row, bulk_rijen, extra_rijen) terug -- bulk_rijen zijn de kale rasterrijen (leeg bij
+    een terugval of een al opgehaald raster), extra_rijen de volledig gescande opvallende maanden.
     """
+    raster_cache = {} if raster_cache is None else raster_cache
+    gescand = set() if gescand is None else gescand
     stay_days = (datetime.strptime(combo.return_date, "%Y-%m-%d")
                  - datetime.strptime(combo.depart_date, "%Y-%m-%d")).days
 
     werkelijke_depart, werkelijke_return = combo.depart_date, combo.return_date
-    bulk_rijen = []
+    bulk_rijen, extra_rijen = [], []
 
     raster_sleutel = (combo.origin, combo.destination, combo.cabin_class)
     if raster_sleutel not in raster_al_opgehaald:
         raster_al_opgehaald.add(raster_sleutel)
+        # Het raster start bij de maand van de opgegeven datum (en klikt alleen VOORUIT door): met de
+        # geplande datum als startpunt zou een combinatie in bv. mei alleen mei-aug dekken. Daarom
+        # altijd starten bij de vroegste zoekdatum, zodat het raster de hele periode dekt.
+        raster_start = (datetime.now() + timedelta(days=SEARCH_START_OFFSET_DAYS)).strftime("%Y-%m-%d")
         dagen = fetch_calendar_prices(
-            page, combo.origin, combo.destination, combo.depart_date, stay_days,
-            cabin_class=combo.cabin_class,
+            page, combo.origin, combo.destination, raster_start, stay_days,
+            cabin_class=combo.cabin_class, months=MONTHS_AHEAD,
         )
         time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
+        raster_cache[raster_sleutel] = dagen
 
         if dagen:
-            beste = select_cheapest_in_month(dagen, combo.depart_date)
+            min_datum, beschikbaar = _vanaf_min_datum(dagen)
+            beste = select_cheapest_in_month(beschikbaar, combo.depart_date)
             werkelijke_depart, werkelijke_return = beste["depart_date"], beste["return_date"]
-            print(f"    kalenderraster: {len(dagen)} dagen, goedkoopste in {combo.depart_date[:7]}: "
-                  f"{werkelijke_depart} (€{beste['price']:.0f})")
+            print(f"    kalenderraster: {len(dagen)} dagen over {len({d['depart_date'][:7] for d in dagen})} "
+                  f"maanden, goedkoopste in {combo.depart_date[:7]}: {werkelijke_depart} (€{beste['price']:.0f})")
             # De 'beste' dag krijgt zo dadelijk de volledige (label+heenreis) rij; geen
             # dubbele/verouderde kale rij voor diezelfde dag ernaast.
             bulk_rijen = [r for r in build_calendar_scan_rows(route_id, dagen, combo.cabin_class)
@@ -414,14 +457,44 @@ def scan_combo(page, client, route_id, combo, raster_al_opgehaald):
                                if r["return_date"] != werkelijke_return]
             else:
                 print("    geen (bruikbaar) retourraster, behoud vaste verblijfsduur.")
+
+            # Opvallend goedkope ANDERE maanden uit hetzelfde raster: nu al volledig scannen.
+            for d in select_notable_months(
+                dagen, combo.depart_date, min_datum, OPVALLEND_KORTING, MAX_OPVALLENDE_MAANDEN_PER_ROUTE,
+            ):
+                print(f"    opvallende maand {d['depart_date'][:7]}: {d['depart_date']} (€{d['price']:.0f}), "
+                      f"volledige scan.")
+                extra_insights = search_route_insights(
+                    page, combo.origin, combo.destination, d["depart_date"], d["return_date"],
+                    seat=combo.cabin_class,
+                )
+                extra_rijen.append(build_scan_row(
+                    route_id, d["depart_date"], d["return_date"], extra_insights, cabin_class=combo.cabin_class,
+                ))
+                gescand.add((*raster_sleutel, d["depart_date"]))
+                bulk_rijen = [r for r in bulk_rijen if r["depart_date"] != d["depart_date"]]
+                time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
         else:
             print("    geen (bruikbaar) kalenderraster, val terug op de geplande datum.")
+    elif raster_cache.get(raster_sleutel):
+        # Raster van deze route zit al in de cache: kies de goedkoopste dag van de maand van DEZE
+        # combinatie daaruit (zonder nieuw verzoek). Zit die maand er niet in, dan blijft de
+        # geplande datum staan.
+        _, beschikbaar = _vanaf_min_datum(raster_cache[raster_sleutel])
+        in_maand = [d for d in beschikbaar if d["depart_date"][:7] == combo.depart_date[:7]]
+        if in_maand:
+            beste = min(in_maand, key=lambda d: (d["price"], d["depart_date"]))
+            if (*raster_sleutel, beste["depart_date"]) in gescand:
+                print(f"    {beste['depart_date']} is al eerder deze run volledig gescand, overgeslagen.")
+                return None, [], []
+            werkelijke_depart, werkelijke_return = beste["depart_date"], beste["return_date"]
 
+    gescand.add((*raster_sleutel, werkelijke_depart))
     insights = search_route_insights(
         page, combo.origin, combo.destination, werkelijke_depart, werkelijke_return, seat=combo.cabin_class,
     )
     row = build_scan_row(route_id, werkelijke_depart, werkelijke_return, insights, cabin_class=combo.cabin_class)
-    return row, bulk_rijen
+    return row, bulk_rijen, extra_rijen
 
 
 def main():
@@ -476,6 +549,8 @@ def main():
     n_nieuw = n_deals = n_fouten = n_db_fouten = 0
     opeenvolgende_fouten = 0
     raster_al_opgehaald = set()
+    raster_cache, gescand = {}, set()
+    verbruikt = 0  # extra volledige scans (opvallende maanden) tellen mee voor het budget
 
     with sync_playwright() as p:
         # Eén browsersessie voor zo'n honderdtal combinaties (BROWSER_RESTART_EVERY): de
@@ -491,7 +566,9 @@ def main():
                   f"(tier {combo.tier}, {combo.cabin_class}), gepland heen {combo.depart_date}, "
                   f"terug {combo.return_date}")
             try:
-                row, bulk_rijen = scan_combo(page, client, route_id, combo, raster_al_opgehaald)
+                row, bulk_rijen, extra_rijen = scan_combo(
+                    page, client, route_id, combo, raster_al_opgehaald, raster_cache, gescand,
+                )
             except Exception as e:
                 # Een fatale fout in de browsersessie zelf (bv. een kapotte pipe naar Playwright's
                 # Node-driver na urenlang draaien) -- de bestaande retries in lib/scraper.py vangen
@@ -500,7 +577,7 @@ def main():
                 print(f"  FATALE FOUT in de browsersessie ({type(e).__name__}: {e}), "
                       f"browsersessie wordt herstart.\n")
                 row = build_scan_row(route_id, combo.depart_date, combo.return_date, None, cabin_class=combo.cabin_class)
-                bulk_rijen = []
+                bulk_rijen, extra_rijen = [], []
                 try:
                     browser.close()
                 except Exception:
@@ -509,6 +586,21 @@ def main():
 
             if bulk_rijen and client is not None and not save_scans_bulk(client, bulk_rijen):
                 n_db_fouten += 1
+
+            for extra in extra_rijen:
+                if extra["is_deal"]:
+                    n_deals += 1
+                    print(f"  Opvallende maand {extra['depart_date'][:7]}: €{extra['lowest_price']:.0f}, "
+                          f"label: {extra['insight_label']} <<< DEAL")
+                if client is not None and not save_scan(client, extra):
+                    n_db_fouten += 1
+                    print("  WAARSCHUWING: deze extra scan is NIET opgeslagen.\n")
+
+            if row is None:
+                # Maand al volledig gescand als opvallende maand eerder deze run: niets te doen.
+                n_nieuw += 1
+                print()
+                continue
 
             if row["insight_label"] == "fout":
                 print("  Geen resultaat (fout na retries).\n")
@@ -536,6 +628,7 @@ def main():
                 print("  WAARSCHUWING: deze scan is NIET opgeslagen.\n")
 
             n_nieuw += 1
+            verbruikt += len(extra_rijen)
 
             if opeenvolgende_fouten >= MAX_CONSECUTIVE_ERRORS:
                 print(f"\nSTOP: {MAX_CONSECUTIVE_ERRORS} mislukte zoekopdrachten achter elkaar -- "
@@ -543,6 +636,10 @@ def main():
                 break
 
             time.sleep(random.uniform(SEARCH_DELAY_MIN_SECONDS, SEARCH_DELAY_MAX_SECONDS))
+
+            if n_nieuw + verbruikt >= budget:
+                print(f"\nBudget ({budget}) bereikt, inclusief {verbruikt} extra scans voor opvallende maanden.")
+                break
 
             if (i + 1) % BROWSER_RESTART_EVERY == 0 and (i + 1) < len(te_scannen):
                 print(f"  (preventieve herstart van de browsersessie na {BROWSER_RESTART_EVERY} combinaties)\n")

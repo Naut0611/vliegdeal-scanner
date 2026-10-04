@@ -13,6 +13,7 @@ instellingen hieronder zijn een bewuste afweging tussen dekking en blokkaderisic
 """
 
 import json
+import random
 import re
 import time
 from datetime import datetime, timedelta
@@ -333,6 +334,12 @@ _KALENDER_KLIK_X, _KALENDER_KLIK_Y = 922, 163
 # Retourveld, direct rechts van het vertrekveld op dezelfde hoogte (zelfde vaste-pixelpositie-aanpak
 # en dezelfde kanttekeningen als _KALENDER_KLIK_X/_Y hierboven) -- zie fetch_return_date_prices().
 _RETOUR_KLIK_X, _RETOUR_KLIK_Y = 1091, 163
+# "Volgende"-pijl rechts van de twee getoonde kalendermaanden (zelfde vaste-pixelpositie-aanpak en
+# kanttekeningen als hierboven): elke klik schuift één maand op en triggert een EIGEN
+# GetCalendarPicker-verzoek voor die ene maand -- zie fetch_calendar_prices(months=...).
+_VOLGENDE_MAAND_KLIK_X, _VOLGENDE_MAAND_KLIK_Y = 1227, 414
+# Het eerste raster toont al twee maanden (huidige + volgende), elke extra klik komt er één bij.
+_MAANDEN_IN_EERSTE_RASTER = 2
 _GET_CALENDAR_PICKER = "GetCalendarPicker"
 MIN_CALENDAR_DAYS = 30
 # Het retourraster is van zichzelf al klein (Google toont maar een beperkt aantal nachten rond de
@@ -389,7 +396,7 @@ def parse_calendar_picker_response(raw_text):
     return dagen
 
 
-def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cabin_class="economy"):
+def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cabin_class="economy", months=1):
     """
     Laadt de resultatenpagina voor (depart_date -> depart_date + stay_days) en klikt daarna het
     datumveld open, wat Google's 'GetCalendarPicker'-achtergrondverzoek triggert. Geeft een lijst
@@ -397,6 +404,13 @@ def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cab
     te weinig dagen opleverde (< MIN_CALENDAR_DAYS, zie hierboven) of niet te parsen was -- de
     aanroeper valt dan terug op de oude, directe aanpak. Gebruikt de gegeven `page` (dezelfde
     browsersessie als de rest van de run, i.p.v. een nieuwe sessie op te zetten).
+
+    months=1 (standaard): alleen het eerste raster (~60 dagen, vanaf vandaag). months>1: daarna
+    doorklikken met de 'volgende maand'-pijl van de kalender -- precies wat een bezoeker doet --
+    tot `months` maanden gedekt zijn (het eerste raster telt voor twee). Elke klik is één extra
+    achtergrondverzoek op dezelfde pagina (geen nieuwe paginalading), met een korte pauze ertussen.
+    Het doorklikken is best-effort: komt er na een klik geen (parsebaar) antwoord, dan stoppen we en
+    geven we terug wat er tot dan toe is; het EERSTE raster bepaalt of het geheel slaagt.
     """
     return_date = (datetime.strptime(depart_date, "%Y-%m-%d") + timedelta(days=stay_days)).strftime("%Y-%m-%d")
     url = build_search_url(origin, destination, depart_date, return_date, seat=cabin_class)
@@ -419,10 +433,25 @@ def fetch_calendar_prices(page, origin, destination, depart_date, stay_days, cab
 
         if not gevangen:
             return None
-        dagen = parse_calendar_picker_response(gevangen[0].text())
-        if len(dagen) < MIN_CALENDAR_DAYS:
+        eerste = parse_calendar_picker_response(gevangen[0].text())
+        if len(eerste) < MIN_CALENDAR_DAYS:
             return None
-        return dagen
+        per_dag = {d["depart_date"]: d for d in eerste}
+
+        verwerkt = 1
+        for _ in range(max(0, months - _MAANDEN_IN_EERSTE_RASTER)):
+            page.wait_for_timeout(random.randint(1500, 3000))
+            page.mouse.click(_VOLGENDE_MAAND_KLIK_X, _VOLGENDE_MAAND_KLIK_Y)
+            page.wait_for_timeout(2500)
+            if len(gevangen) <= verwerkt:
+                break  # geen nieuw verzoek na de klik: pijl niet gevonden of einde van het venster
+            try:
+                for d in parse_calendar_picker_response(gevangen[verwerkt].text()):
+                    per_dag[d["depart_date"]] = d
+            except Exception:
+                break
+            verwerkt += 1
+        return sorted(per_dag.values(), key=lambda d: d["depart_date"])
     except Exception as e:
         print(f"    kalenderraster mislukt ({type(e).__name__}: {e}), val terug op vaste datum.")
         return None
@@ -514,6 +543,36 @@ def select_cheapest_in_month(dagen, anchor_date):
     maand = anchor_date[:7]  # 'YYYY-MM'
     kandidaten = [d for d in dagen if d["depart_date"][:7] == maand] or dagen
     return min(kandidaten, key=lambda d: (d["price"], d["depart_date"]))
+
+
+def select_notable_months(dagen, anchor_date, min_date, min_discount, max_n):
+    """
+    Voor een meermaands-raster (fetch_calendar_prices(months>1)): de goedkoopste dag van elke
+    ANDERE maand dan die van anchor_date (die krijgt al de gewone behandeling) waarvan die prijs
+    minstens `min_discount` (0.2 = 20%) onder de mediaan van alle (beschikbare) dagprijzen in het
+    raster ligt -- een maand die dus echt opvalt en een volledige scan (Prijsinzichten-label)
+    verdient, ook al is die niet aan de beurt. Alleen dagen vanaf `min_date` ('YYYY-MM-DD') tellen
+    mee (niets zoeken dichter bij vandaag dan de scanner toestaat). Hoogstens `max_n`, grootste
+    korting eerst; [] bij te weinig dagen om een mediaan van te nemen.
+    """
+    beschikbaar = [d for d in dagen if d["depart_date"] >= min_date]
+    if len(beschikbaar) < MIN_CALENDAR_DAYS:
+        return []
+    prijzen = sorted(d["price"] for d in beschikbaar)
+    mediaan = prijzen[len(prijzen) // 2] if len(prijzen) % 2 else (
+        prijzen[len(prijzen) // 2 - 1] + prijzen[len(prijzen) // 2]) / 2
+    grens = mediaan * (1 - min_discount)
+
+    per_maand = {}
+    for d in beschikbaar:
+        maand = d["depart_date"][:7]
+        if maand == anchor_date[:7]:
+            continue
+        if maand not in per_maand or (d["price"], d["depart_date"]) < (per_maand[maand]["price"], per_maand[maand]["depart_date"]):
+            per_maand[maand] = d
+    opvallend = [d for d in per_maand.values() if d["price"] <= grens]
+    opvallend.sort(key=lambda d: (d["price"], d["depart_date"]))
+    return opvallend[:max_n]
 
 
 def build_calendar_scan_rows(route_id, dagen, cabin_class):
