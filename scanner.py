@@ -154,7 +154,10 @@ EUROPE_ONLY_ORIGINS = {"RTM", "EIN"}
 # om ruim binnen deze workflow's timeout-minutes (350, zie scan.yml) te passen, ook als een deel van
 # de combinaties traag uitpakt; bijstellen zodra een paar runs met de periodieke browserherstart een
 # stabieler beeld geven.
-SCANS_PER_RUN = 300
+# Gemeten op een echte GitHub Actions-run (2026-10-04, budget 300): 2u58m, ~36s/combinatie, dus ruim
+# binnen scan.yml's timeout-minutes (350) en met uren marge voor de rest van de pipeline vóór de
+# 8:15-dealmail. Daarom verhoogd naar 450 (~4u30m verwacht).
+SCANS_PER_RUN = 450
 
 # Na zoveel combinaties wordt de browsersessie preventief afgesloten en vers geopend (zelfde
 # consent-aanpak, accept_consent_if_present is daar al idempotent in). Een losse combinatie die
