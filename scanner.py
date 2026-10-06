@@ -505,6 +505,9 @@ def main():
     parser.add_argument("--budget", type=int, default=SCANS_PER_RUN,
                         help=f"maximaal aantal combinaties deze run (standaard {SCANS_PER_RUN})")
     parser.add_argument("--limit", type=int, help="stop na dit aantal combinaties (om te testen)")
+    parser.add_argument("--max-minuten", type=float, default=None,
+                        help="stop netjes (na de lopende combinatie) zodra de run zo lang bezig is; "
+                             "bedoeld voor GitHub Actions, zie scan.yml")
     parser.add_argument("--dest", help="alleen deze bestemmingen, kommagescheiden IATA-codes")
     parser.add_argument("--dry-run", action="store_true", help="niets naar Supabase schrijven of ervan lezen")
     args = parser.parse_args()
@@ -553,6 +556,7 @@ def main():
     opeenvolgende_fouten = 0
     raster_al_opgehaald = set()
     raster_cache, gescand = {}, set()
+    start = time.monotonic()
     verbruikt = 0  # extra volledige scans (opvallende maanden) tellen mee voor het budget
 
     with sync_playwright() as p:
@@ -642,6 +646,11 @@ def main():
 
             if n_nieuw + verbruikt >= budget:
                 print(f"\nBudget ({budget}) bereikt, inclusief {verbruikt} extra scans voor opvallende maanden.")
+                break
+
+            if args.max_minuten is not None and (time.monotonic() - start) / 60 >= args.max_minuten:
+                print(f"\nTijdslimiet ({args.max_minuten:.0f} min) bereikt na {n_nieuw + verbruikt} scans; "
+                      f"de rest is de volgende ronde/nacht aan de beurt.")
                 break
 
             if (i + 1) % BROWSER_RESTART_EVERY == 0 and (i + 1) < len(te_scannen):

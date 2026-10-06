@@ -7,8 +7,26 @@ name: Nachtelijke scan
 # Wordt daarom dagelijks aangeroepen door een externe cron-dienst (buiten GitHub) die op tijd een
 # POST doet naar deze workflow's /dispatches-endpoint met een GitHub Personal Access Token -- zie
 # CLAUDE.md in de private repo voor de volledige toelichting/opzet.
+#
+# Meerdere RONDES per nacht: GitHub breekt elke job na 6 uur af, dus meer scans per nacht betekent
+# meerdere jobs achter elkaar (nooit tegelijk: de concurrency-groep hieronder laat een volgende
+# ronde wachten tot de vorige klaar is -- scraping-etiquette). Elke ronde stopt zelf netjes na
+# --max-minuten (ruim onder de 6 uur) en start daarna de volgende; elke ronde kiest via de planner
+# de meest achterstallige combinaties uit de database, dus de rondes overlappen niet. Pas de LAATSTE
+# ronde meldt de private repo dat de scan klaar is. De externe cron hoeft alleen ronde 1 te starten
+# (defaults hieronder) -- de eerste ronde is dus precies wat de cron al deed.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ronde:
+        description: "Huidige ronde (de externe cron laat dit leeg = 1)"
+        default: "1"
+      rondes:
+        description: "Totaal aantal rondes deze nacht"
+        default: "3"
+
+permissions:
+  actions: write  # nodig om de volgende ronde met GITHUB_TOKEN te starten
 
 concurrency:
   group: scanner
@@ -33,14 +51,22 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      - name: Scan
-        run: python scanner.py
+      - name: Scan (ronde ${{ inputs.ronde }} van ${{ inputs.rondes }})
+        run: python scanner.py --max-minuten 180
 
-      # Draait ook als de scan hierboven faalt/afbreekt (if: always()), zodat de
-      # private repo's pipeline (livecheck/curate/recheck/review/kalender) net als
-      # bij een lokale run gewoon doorgaat op wat er al ligt.
+      # Draait ook als de scan hierboven faalt/afbreekt (if: always()), zodat de keten nooit
+      # halverwege stilvalt en de private repo's pipeline (livecheck/curate/recheck/review/kalender)
+      # altijd uiteindelijk draait op wat er al ligt.
+      - name: Start de volgende ronde
+        if: always() && fromJSON(inputs.ronde) < fromJSON(inputs.rondes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run scan.yml --repo "${{ github.repository }}" \
+            -f ronde=$(( ${{ inputs.ronde }} + 1 )) -f rondes=${{ inputs.rondes }}
+
       - name: Meld de private repo dat de scan klaar is
-        if: always()
+        if: always() && fromJSON(inputs.ronde) >= fromJSON(inputs.rondes)
         env:
           DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
           SCAN_OUTCOME: ${{ job.status }}
