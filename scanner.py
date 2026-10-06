@@ -157,7 +157,7 @@ EUROPE_ONLY_ORIGINS = {"RTM", "EIN"}
 # Gemeten op echte GitHub Actions-runs: budget 300 = 2u58m (~36s/combinatie), maar budget 450 werd
 # na 5u50m door scan.yml's timeout afgebroken op combinatie 271/450 (~77s/combinatie): het tempo
 # wisselt sterk per nacht, dus 300 is de enige waarde die bewezen binnen de timeout (350 min) past.
-SCANS_PER_RUN = 300
+SCANS_PER_RUN = 3
 
 # Na zoveel combinaties wordt de browsersessie preventief afgesloten en vers geopend (zelfde
 # consent-aanpak, accept_consent_if_present is daar al idempotent in). Een losse combinatie die
