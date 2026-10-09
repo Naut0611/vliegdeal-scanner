@@ -1,0 +1,56 @@
+name: Dagelijkse pipeline (na scan)
+
+# De hele keten ná de scan draait HIER i.p.v. in de private repo (Naut0611/vliegdealtjes): die heeft
+# maar 2000 gratis Actions-minuten per maand, deze public repo onbeperkt. 2_curate.py, 3_recheck.py,
+# 4_review.py, 5_livecheck.py en 6_calendar.py zijn kopieën van analytics/ in de private repo
+# (wijzig altijd in beide). Volgorde en poort-logica zijn ongewijzigd t.o.v. scripts/run_daily.sh:
+# livecheck VÓÓR curate, recheck VÓÓR de automatische review.
+#
+# Wordt gestart door de laatste ronde van scan.yml, en zit in dezelfde concurrency-groep als de scan:
+# nooit tegelijk scrapen (scraping-etiquette).
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: scanner
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330   # GitHub's maximum is 360
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      # Elke live deal moet dagelijks gecontroleerd worden: dit budget is een vangnet, geen normale
+      # begrenzing (403 live deals = ~110 min). Stopt de stap toch, dan staat er een waarschuwing en
+      # is de rest de volgende nacht als eerste aan de beurt. Budgetten samen < timeout.
+      - name: Live-controle
+        run: python 5_livecheck.py --max-minuten 170
+
+      - name: Curate
+        run: python 2_curate.py
+
+      - name: Hercontrole
+        run: python 3_recheck.py --max-minuten 90
+
+      # De enige toegestane poort naar published=true zonder menselijke blik:
+      # uitsluitend voor rijen met een geslaagde hercontrole (recheck_status == 'ok').
+      - name: Automatische review
+        run: python 4_review.py --automatisch --zonder-bevestiging
+
+      - name: Prijskalender
+        if: ${{ !cancelled() }}
+        run: python 6_calendar.py

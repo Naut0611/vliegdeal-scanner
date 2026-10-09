@@ -65,14 +65,10 @@ jobs:
           gh workflow run scan.yml --repo "${{ github.repository }}" \
             -f ronde=$(( ${{ inputs.ronde }} + 1 )) -f rondes=${{ inputs.rondes }}
 
-      - name: Meld de private repo dat de scan klaar is
+      # De laatste ronde start de rest van de dagelijkse keten (dagelijks.yml: livecheck, curate,
+      # recheck, review, kalender), die ook hier draait wegens de Actions-minuten van de private repo.
+      - name: Start de dealcontrole
         if: always() && fromJSON(inputs.ronde) >= fromJSON(inputs.rondes)
         env:
-          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
-          SCAN_OUTCOME: ${{ job.status }}
-        run: |
-          curl --fail-with-body -sS -X POST \
-            -H "Authorization: token ${DISPATCH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/Naut0611/vliegdealtjes/dispatches" \
-            -d "{\"event_type\":\"scan-klaar\",\"client_payload\":{\"status\":\"${SCAN_OUTCOME}\"}}"
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run dagelijks.yml --repo "${{ github.repository }}" --ref main
