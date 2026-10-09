@@ -23,7 +23,7 @@ on:
         default: "1"
       rondes:
         description: "Totaal aantal rondes deze nacht"
-        default: "2"
+        default: "3"
 
 permissions:
   actions: write  # nodig om de volgende ronde met GITHUB_TOKEN te starten
