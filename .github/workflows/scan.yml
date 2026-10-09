@@ -11,7 +11,7 @@ name: Nachtelijke scan
 # Meerdere RONDES per nacht: GitHub breekt elke job na 6 uur af, dus meer scans per nacht betekent
 # meerdere jobs achter elkaar (nooit tegelijk: de concurrency-groep hieronder laat een volgende
 # ronde wachten tot de vorige klaar is -- scraping-etiquette). Elke ronde stopt zelf netjes na
-# --max-minuten (ruim onder de 6 uur) en start daarna de volgende; elke ronde kiest via de planner
+# --max-minuten (330, onder GitHub's limiet van 360; gemeten ~64 s/combinatie = ~300 combinaties per ronde) en start daarna de volgende; elke ronde kiest via de planner
 # de meest achterstallige combinaties uit de database, dus de rondes overlappen niet. Pas de LAATSTE
 # ronde meldt de private repo dat de scan klaar is. De externe cron hoeft alleen ronde 1 te starten
 # (defaults hieronder) -- de eerste ronde is dus precies wat de cron al deed.
@@ -23,7 +23,7 @@ on:
         default: "1"
       rondes:
         description: "Totaal aantal rondes deze nacht"
-        default: "3"
+        default: "2"
 
 permissions:
   actions: write  # nodig om de volgende ronde met GITHUB_TOKEN te starten
@@ -52,7 +52,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Scan (ronde ${{ inputs.ronde }} van ${{ inputs.rondes }})
-        run: python scanner.py --max-minuten 180
+        run: python scanner.py --max-minuten 330
 
       # Draait ook als de scan hierboven faalt/afbreekt (if: always()), zodat de keten nooit
       # halverwege stilvalt en de private repo's pipeline (livecheck/curate/recheck/review/kalender)
