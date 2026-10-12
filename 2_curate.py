@@ -71,6 +71,7 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 
 from lib.db import fetch_all, get_client
+from lib.kwaliteit import MIN_DISCOUNT_PCT
 
 DEFAULT_DAYS = 7          # scans van de laatste N dagen komen in aanmerking als deal
 HISTORY_DAYS = 60         # zoveel dagen scans gebruiken als vergelijkingsmateriaal
@@ -85,7 +86,7 @@ MIN_SCORE = 10.0
 # Harde ondergrens op de ECHTE korting (discount_pct of drop_pct, los van de bonussen
 # hierboven): zonder deze grens kan een deal met een verwaarloosbare korting alsnog
 # over MIN_SCORE komen puur op RARITY_BONUS/FLOOR_BONUS. Zie de toelichting bovenaan.
-MIN_DISCOUNT_PCT = 30.0
+# MIN_DISCOUNT_PCT staat in lib/kwaliteit.py (ook gebruikt door 4_review.py --automatisch).
 # Reistijd-filter op de HEENreis (outbound_duration_minutes; onbekend = niet filteren):
 # een deal valt af als de reis opvallend langer is dan wat andere scans van dezelfde
 # route/cabin class laten zien (bv. een lage prijs door een 30 uur durende omweg). Bewust

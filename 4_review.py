@@ -42,6 +42,7 @@ from datetime import date, datetime, timezone
 import fast_flights as ff
 
 from lib.db import fetch_all, get_client
+from lib.kwaliteit import MIN_DISCOUNT_PCT, echte_korting
 
 
 def google_flights_url(origin, destination, depart_date, return_date, seat="economy"):
@@ -214,6 +215,9 @@ def main():
         if args.automatisch:
             if deal["recheck_status"] != "ok":
                 print("  -> Overgeslagen (geen geslaagde hercontrole): blijft op review staan.\n")
+                continue
+            if echte_korting(deal) < MIN_DISCOUNT_PCT:
+                print(f"  -> Overgeslagen (echte korting {echte_korting(deal):.0f}% < {MIN_DISCOUNT_PCT:g}%): blijft op review staan.\n")
                 continue
             keuze = "g"
         else:
