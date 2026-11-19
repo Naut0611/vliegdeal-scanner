@@ -43,10 +43,16 @@ def fetch_all(build_query, order_by="id"):
     moet een stabiele volgorde hebben; we sorteren op `order_by` (standaard de
     kolom `id`, behalve bij `destinations`, waar `iata` de primary key is).
     """
-    rijen, start = [], 0
+    # Keyset-paginering (`order_by > laatste waarde`) i.p.v. range/offset: een offset laat
+    # Postgres elke pagina alle voorgaande rijen opnieuw doorlopen, wat bij een grote
+    # `scans`-tabel op een statement timeout (57014) uitliep.
+    rijen, laatste = [], None
     while True:
-        resp = build_query().order(order_by).range(start, start + PAGE_SIZE - 1).execute()
+        q = build_query()
+        if laatste is not None:
+            q = q.gt(order_by, laatste)
+        resp = q.order(order_by).limit(PAGE_SIZE).execute()
         rijen.extend(resp.data)
         if len(resp.data) < PAGE_SIZE:
             return rijen
-        start += PAGE_SIZE
+        laatste = resp.data[-1][order_by]

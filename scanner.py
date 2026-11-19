@@ -335,7 +335,7 @@ def load_subscriber_wensen(client):
     if client is None:
         return []
     return fetch_all(lambda: client.table("subscribers").select(
-        "origin_airport, origin_airports, region, countries, period_from, period_to"
+        "id, origin_airport, origin_airports, region, countries, period_from, period_to"
     ))
 
 

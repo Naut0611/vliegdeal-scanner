@@ -404,7 +404,7 @@ def main():
     # die nog niet voorbij is.
     history = fetch_all(
         lambda: client.table("scans")
-        .select("route_id, depart_date, return_date, cabin_class, lowest_price, insight_label, "
+        .select("id, route_id, depart_date, return_date, cabin_class, lowest_price, insight_label, "
                 "price_floor, is_deal, scanned_at, "
                 "outbound_stops, outbound_stopover_airports, outbound_duration_minutes, outbound_airlines")
         .gte("scanned_at", history_sinds.isoformat())

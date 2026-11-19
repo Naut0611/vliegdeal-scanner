@@ -86,7 +86,7 @@ def main():
     client = get_client()
     history = fetch_all(
         lambda: client.table("scans")
-        .select("route_id, cabin_class, depart_date, lowest_price")
+        .select("id, route_id, cabin_class, depart_date, lowest_price")
         .not_.is_("lowest_price", "null")
     )
     print(f"{len(history)} scans met prijs in de volledige geschiedenis.")
