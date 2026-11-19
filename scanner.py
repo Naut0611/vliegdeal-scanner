@@ -265,27 +265,20 @@ def load_last_scanned(client, route_ids):
     route_per_id = {rid: od for od, rid in route_ids.items()}
     sinds = (datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).isoformat()
     laatste = {}
-    start, grootte = 0, 1000
-    while True:
-        resp = (
-            client.table("scans")
-            .select("route_id, depart_date, return_date, cabin_class, scanned_at")
-            .gte("scanned_at", sinds)
-            .order("id")
-            .range(start, start + grootte - 1)
-            .execute()
-        )
-        for r in resp.data:
-            od = route_per_id.get(r["route_id"])
-            if od is None:
-                continue
-            sleutel = (*od, r["depart_date"], r["return_date"], r["cabin_class"])
-            tijdstip = datetime.fromisoformat(r["scanned_at"])
-            if sleutel not in laatste or tijdstip > laatste[sleutel]:
-                laatste[sleutel] = tijdstip
-        if len(resp.data) < grootte:
-            return laatste
-        start += grootte
+    rijen = fetch_all(
+        lambda: client.table("scans")
+        .select("id, route_id, depart_date, return_date, cabin_class, scanned_at")
+        .gte("scanned_at", sinds)
+    )
+    for r in rijen:
+        od = route_per_id.get(r["route_id"])
+        if od is None:
+            continue
+        sleutel = (*od, r["depart_date"], r["return_date"], r["cabin_class"])
+        tijdstip = datetime.fromisoformat(r["scanned_at"])
+        if sleutel not in laatste or tijdstip > laatste[sleutel]:
+            laatste[sleutel] = tijdstip
+    return laatste
 
 
 

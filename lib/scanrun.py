@@ -56,7 +56,7 @@ def verse_scans(client, deals, binnen, nu):
     route_ids = sorted({d["route_id"] for d in deals})
     rijen = fetch_all(
         lambda: client.table("scans")
-        .select("route_id, depart_date, return_date, cabin_class, scanned_at, lowest_price, "
+        .select("id, route_id, depart_date, return_date, cabin_class, scanned_at, lowest_price, "
                 "insight_label, price_floor, is_deal")
         .in_("route_id", route_ids)
         .gte("scanned_at", (nu - binnen).isoformat())
